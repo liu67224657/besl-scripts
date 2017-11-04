@@ -1,0 +1,140 @@
+<project name="hotdeploy" default="usage" basedir=".">
+    <tstamp>
+        <format property="hotdeploy.date" pattern="yyyy-MM-dd HH:mm"/>
+    </tstamp>
+
+    <!-- set package dirs: -->
+    <condition property="package.root" value="c:/ops/online/package">
+        <os family="windows"/>
+    </condition>
+    <condition property="package.root" value="/opt/ops/repo">
+        <os family="unix"/>
+    </condition>
+
+    <property name="webserver.root" value="${package.root}/besl-webserver"/>
+    <property name="package.hotdeploy.root" value="${package.root}/besl-platform"/>
+
+    <!-- set deploy dirs: -->
+    <condition property="deploy.root" value="c:/ops/deploy">
+        <os family="windows"/>
+    </condition>
+    <condition property="deploy.root" value="/opt/ops/deploy">
+        <os family="unix"/>
+    </condition>
+
+    <property name="deploy.platform.root" value="${deploy.root}/platform/CURRENT"/>
+    <property name="deploy.webserver.root" value="${deploy.root}/webserver/CURRENT"/>
+
+    <!--###########################################################-->
+    <!--## usage task                                            ##-->
+    <!--###########################################################-->
+    <target name="usage">
+        <echo taskname="usage" message="USAGE: hotdeploy.sh [-v] [version]"/>
+        <echo taskname="usage" message=" "/>
+        <echo taskname="usage" message="-v			 runs ant in verbose mode"/>
+        <echo taskname="usage" message=" "/>
+        <echo taskname="usage" message="target		 execute 'hotdeploy.sh -version'"/>
+        <echo taskname="usage" message=" "/>
+    </target>
+
+    <!--###########################################################-->
+    <!--## initialization targets                                ##-->
+    <!--###########################################################-->
+    <target name="bootstrap" unless="bootstrap.complete">
+        <property name="package.hotdeploy.platform.configfiles" value="${package.hotdeploy.root}/configfiles"/>
+        <property name="package.hotdeploy.webapps.www" value="${package.hotdeploy.root}/webapps/www/htdocs"/>
+        <property name="package.hotdeploy.webapps.tools" value="${package.hotdeploy.root}/webapps/tools/htdocs"/>
+        <property name="package.hotdeploy.webapps.image" value="${package.hotdeploy.root}/webapps/image/htdocs"/>
+        <!--todo modify by ericliu -->
+        <!--<property name="package.hotdeploy.webserver" value="${package.hotdeploy.root}/webserver"/>-->
+        <property name="package.hotdeploy.webserver" value="${webserver.root}"/>
+
+        <property name="hotdeploy.platform" value="${deploy.platform.root}/classes"/>
+        <property name="hotdeploy.webapps.www" value="${deploy.platform.root}/webapps/www/htdocs"/>
+        <property name="hotdeploy.webapps.tools" value="${deploy.platform.root}/webapps/tools/htdocs"/>
+        <property name="hotdeploy.webapps.image" value="${deploy.platform.root}/webapps/image/htdocs"/>
+        <property name="hotdeploy.webserver" value="${deploy.webserver.root}"/>
+
+        <!-- echo build summary: -->
+        <echo message="========================================================="/>
+        <echo message="Hotdeploy date               ${hotdeploy.date}           "/>
+        <echo message="Hotdeploy package root       ${package.hotdeploy.root}   "/>
+        <echo message="  - framework                ${package.hotdeploy.platform.configfiles}"/>
+        <echo message="  - webapps.www              ${package.hotdeploy.webapps.www}"/>
+        <echo message="  - webapps.tools            ${package.hotdeploy.webapps.tools}"/>
+        <echo message="  - webapps.image            ${package.hotdeploy.webapps.image}"/>
+        <echo message="  - webserver                ${package.hotdeploy.webserver}"/>
+        <echo message="Hotdeploy                                                "/>
+        <echo message="  - root                     ${deploy.platform.root}     "/>
+        <echo message="  - framework                ${hotdeploy.platform}       "/>
+        <echo message="  - webapps www              ${hotdeploy.webapps.www}   "/>
+        <echo message="  - webapps tools            ${hotdeploy.webapps.tools}  "/>
+        <echo message="  - webapps image            ${hotdeploy.webapps.image}  "/>
+        <echo message="  - webserver                ${hotdeploy.webserver}      "/>
+        <echo message="========================================================="/>
+
+        <!-- flag boostrap as complete -->
+        <property name="bootstrap.complete" value="true"/>
+    </target>
+
+    <!--###########################################################-->
+    <!--## deploy targets			    					     ##-->
+    <!--###########################################################-->
+    <target name="deploy" depends="bootstrap" description="Deploy the hotdeploy">
+        <!--copy the hotdeploy core file-->
+        <copy todir="${hotdeploy.platform}/hotdeploy" overwrite="no" verbose="yes" failonerror="false">
+            <fileset dir="${package.hotdeploy.platform.configfiles}/hotdeploy">
+                <include name="**/*"/>
+            </fileset>
+        </copy>
+
+        <!--copy the hotdeploy webapps.www file-->
+        <copy todir="${hotdeploy.webapps.www}/hotdeploy" overwrite="no" verbose="yes" failonerror="false">
+            <fileset dir="${package.hotdeploy.webapps.www}/hotdeploy">
+                <include name="**/*"/>
+            </fileset>
+        </copy>
+
+        <native2ascii encoding="utf-8" dest="${hotdeploy.webapps.www}/WEB-INF/classes/hotdeploy/i18n"
+                      src="${hotdeploy.platform}/hotdeploy/i18n" ext=".properties">
+            <include name="**/*.properties"/>
+        </native2ascii>
+
+        <!--copy the hotdeploy webapps.image file-->
+        <copy todir="${hotdeploy.webapps.image}/hotdeploy" overwrite="no" verbose="yes" failonerror="false">
+            <fileset dir="${package.hotdeploy.webapps.image}/hotdeploy">
+                <include name="**/*"/>
+            </fileset>
+        </copy>
+
+        <native2ascii encoding="utf-8" dest="${hotdeploy.webapps.image}/WEB-INF/classes/hotdeploy/i18n"
+                      src="${hotdeploy.platform}/hotdeploy/i18n" ext=".properties">
+            <include name="**/*.properties"/>
+        </native2ascii>
+
+        <!--copy the hotdeploy webapps.tools file-->
+        <copy todir="${hotdeploy.webapps.tools}/hotdeploy" overwrite="no" verbose="yes" failonerror="false">
+            <fileset dir="${package.hotdeploy.webapps.tools}/hotdeploy">
+                <include name="**/*"/>
+            </fileset>
+        </copy>
+
+        <native2ascii encoding="utf-8" dest="${hotdeploy.webapps.tools}/WEB-INF/classes/hotdeploy/i18n"
+                      src="${hotdeploy.platform}/hotdeploy/i18n" ext=".properties">
+            <include name="**/*.properties"/>
+        </native2ascii>
+    </target>
+
+    <!--###########################################################-->
+    <!--## deploy targets			    					     ##-->
+    <!--###########################################################-->
+    <target name="wsdeploy" depends="bootstrap" description="Deploy the ws hotdeploy">
+        <!--copy the hotdeploy core file-->
+        <copy todir="${hotdeploy.webserver}/templates" overwrite="no" verbose="yes" failonerror="false">
+            <fileset dir="${package.hotdeploy.webserver}/templates">
+                <include name="**/*"/>
+            </fileset>
+        </copy>
+    </target>
+</project>
+

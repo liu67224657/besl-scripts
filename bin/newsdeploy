@@ -1,0 +1,44 @@
+#!/bin/bash
+
+Target="$1"
+Newsroot="/opt/package/news/"
+Newsdir="/opt/ops/news/"
+Cmd="/bin/cp"
+Sourcedir="/opt/monitor/apache/htdocs/news/"
+
+#check and get the args
+
+if [[ $# < 1 ]]
+then
+        echo "usage:newsdeploy <target>"
+        exit 2
+fi
+
+if [[ $Target != "deploy" && $Target != "sync" ]];then
+        echo "usage:`basename $0` deploy or sync"
+        exit 2
+fi
+
+if [[ $Target == "deploy" ]];then
+	echo "Deploy the news content"
+        cat /opt/ops/bin/cfg.`hostname|awk -F. '{print $1}'`*com|head -n2|grep "webapps.core"
+       	if [[ $? -ne "0" ]];then
+            	echo "This is Besl, it doesn't need the news."
+		exit 0
+        else
+		echo "Deploy the news content to /opt/ops/news/."
+                $Cmd -r ${Newsroot}* ${Newsdir}
+		exit 0
+        fi
+	exit 0
+else
+        if [[ $Target == "sync" ]];then
+		echo "Sync the new content from the deploy101 in shanghai idc to deploy001 in beijing idc."
+                $Cmd -r ${Sourcedir}* ${Newsroot};
+                /usr/bin/rsync -vzrutopg --progress --stats --delete -e ssh /opt/package/news/ webops@192.168.10.201:/opt/package/news/
+        fi
+	exit 0
+fi
+
+exit 0
+

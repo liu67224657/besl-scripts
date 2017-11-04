@@ -1,0 +1,21 @@
+#!/bin/csh -f
+
+#get the argvs
+if( $#argv != 3 ) then
+        echo "usage: cleanrotatelog log-dir fileregex days"
+        exit 1
+endif
+ 
+#set the args
+set logdir = "$1"
+set fileregex = "$2"
+set days = "$3"
+
+#start to process
+echo "Start to clean the $fileregex in $logdir before $days days."
+
+##
+find $logdir -mtime +$days -name "$fileregex"  -exec rm -rf {} \;
+
+#end process
+echo "Clean rotate logs completed."

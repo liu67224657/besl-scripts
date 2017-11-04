@@ -1,0 +1,35 @@
+#!/bin/csh -f
+ 
+#Check and get the args
+############################ 
+if ($#argv < 2 ) then
+        echo "usage: patch <patchnum> check|deploy"
+        exit 2
+endif
+
+set patchnum = "$1"
+set target = "$2"
+if ( "$target" != "check" && "$target" != "deploy" ) then
+        echo "The arg must been check|deploy."
+        exit 2
+endif
+ 
+echo "The arg1 is $patchnum, the arg2 is $target."
+echo ""
+###########################
+
+if (! -e "/opt/package/patch/$patchnum/conf/patch.cfg") then
+	echo "ERROR: THE PATCH $patchnum DOES NOT EXIST."
+	exit 2
+endif
+
+#rebuild the host configure file
+###########################
+/opt/ops/bin/hostconfig
+###########################
+
+#According to the target do something
+###########################
+/opt/ops/bin/patch.sh $patchnum $target
+exit 0
+###########################

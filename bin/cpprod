@@ -1,0 +1,27 @@
+#!/bin/bash
+
+#define the deploy root dir
+DEPLOY_LINK_ROOT="/opt/ops/deploy/platform/CURRENT"
+
+#set the CP varioables
+CP_CLASSES_DIR=${DEPLOY_LINK_ROOT}/classes
+CP_THIRDLIB_DIR=${DEPLOY_LINK_ROOT}/relatedjars
+CP_LIB_DIR=${DEPLOY_LINK_ROOT}/lib
+
+
+############################
+# construct the classpath: #
+############################
+OUTPUT_CLASSPATH=${CP_CLASSES_DIR}
+
+#search the thirdpart jars
+for i in ${CP_LIB_DIR}/*.jar ; do OUTPUT_CLASSPATH=${OUTPUT_CLASSPATH}:${i} ; done
+
+for i in ${CP_THIRDLIB_DIR}/*.jar ; do OUTPUT_CLASSPATH=${OUTPUT_CLASSPATH}:${i} ; done
+
+
+
+#########################
+# output the classpath: #
+#########################
+echo ${OUTPUT_CLASSPATH}

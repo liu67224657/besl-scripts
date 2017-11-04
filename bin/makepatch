@@ -1,0 +1,32 @@
+#!/bin/csh -f
+
+#Check and get the args
+############################ 
+if ($#argv < 1) then
+        echo "usage: makepatch patchnumber"
+        exit 2
+endif
+
+#get the patch number.
+############################
+set patchnum = "$1"
+echo "You are ready to make the patch $patchnum."
+
+#make a dir for the patch
+############################
+echo "Create the patch dir: /opt/package/patch/$patchnum."
+mkdir /opt/package/patch/"$patchnum"
+
+#copy the patch template tar file to the patch dir.
+#then exact it.
+############################
+cp /opt/ops/bin/patch-template.tar /opt/package/patch/"$patchnum"
+cd /opt/package/patch/"$patchnum"
+tar zxf patch-template.tar
+
+#remove the untar template file.
+############################
+rm patch-template.tar
+
+echo "The patch template dirs are created."
+exit 0

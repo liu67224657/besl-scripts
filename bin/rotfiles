@@ -1,0 +1,24 @@
+#!/bin/ksh
+
+# rotfiles - Rotates files
+#
+# usage: rotfiles src_file_dir
+
+NGINX_LOG_DIR=${1}
+TAG=`date +%y%m%d.%H%M%S.archives`
+TAG2=`date -d yesterday  +%Y%m%d`
+
+# MOVE LOGFILES
+for NGINXLOG in `/bin/ls ${NGINX_LOG_DIR}/*.log`
+do
+    mv ${NGINXLOG} ${NGINXLOG}.${TAG}.${TAG2}
+done
+
+#create archives dir
+if [ ! -d ${NGINX_LOG_DIR}/archives ]
+then
+    mkdir ${NGINX_LOG_DIR}/archives
+fi
+
+#move the rotated files into the bak dir
+mv ${NGINX_LOG_DIR}/*.archives.* ${NGINX_LOG_DIR}/archives

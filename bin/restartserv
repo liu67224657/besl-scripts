@@ -1,0 +1,23 @@
+#!/usr/bin/perl
+
+if (scalar(@ARGV) != 1)
+{
+        usage();
+}
+else
+{
+        system("stopserv $ARGV[0]");
+        system("startserv $ARGV[0]");
+}
+
+
+##########
+# usage: #
+##########
+sub usage()
+{
+        print "\nUSAGE: restartserv <servername>\n";
+        print "\n       <servername> the name of the server to start (e.g. roomserver)";
+        print "\n\n";
+        exit 1;
+}

@@ -1,0 +1,52 @@
+#!/bin/csh -f
+ 
+#Check and get the args
+############################ 
+if ($#argv < 1) then
+        echo "usage: hotdeploy sync|deploy"
+        exit 2
+endif
+ 
+set target = "$1"
+if ( "$target" != "sync" && "$target" != "deploy" ) then
+        echo "The arg must been sync|deploy."
+	exit 2
+endif
+
+echo "The arg1 is $target."
+echo ""
+###########################
+
+#set the env param
+##########################
+#set hotdeployViewRoot = "/opt/package/hotdeploy"
+#set p4 = "/opt/ops/bin/p4"
+set hotdeployViewRoot = "/opt/ops/repo/besl-platform"
+set deployRoot = "/opt/ops/deploy/platform/CURRENT"
+
+#setenv P4CONFIG ".p4config"
+#setenv P4CHARSET "utf8"
+setenv PATH "/usr/local/bin:$PATH"
+###########################
+
+#According to the target, do sync or hotdeploy;
+###########################
+if ( "$target" == "sync" ) then
+	echo "===SYNC ALL THE HOTDEPLOY CONTENT TO PACKAGE DIR==="
+	echo "The hotdeploy view dir is $hotdeployViewRoot"
+	echo "Go to the view root: $hotdeployViewRoot"
+	cd $hotdeployViewRoot
+	#echo "Sync all the hotdeploy content"
+	#$p4 sync
+	git pull
+	
+	echo "Resync hotdeploy content"
+	/opt/ops/bin/resyncpackage
+else
+	echo "===DISPATCH ALL THE CONTENT IN HOTDEPLOY PACKAGE TO CURRENT DEPLOY==="
+	/opt/ops/bin/hotdeploy.sh deploy
+	echo ""
+endif
+###########################
+
+exit 0

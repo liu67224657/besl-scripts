@@ -1,0 +1,77 @@
+#!/usr/bin/perl
+
+#
+# Stop a java server process.
+#
+BEGIN { push @INC, '/opt/ops/bin' }
+use Runtime;
+
+if (scalar(@ARGV) < 1)
+{
+    print "\nUSAGE: stopserv <servername>\n\n";
+	  print "       <servername> the name of the server to stop (e.g. roomserver)\n\n";
+    exit 1;
+}
+
+# Find the directory
+
+$serviceName = $ARGV[0];
+$serviceDir = $SERVICE_RUN_ROOT . "/$serviceName";
+chdir $serverDir or die "$serverDir doesn't appear to be an official server on this machine - $!\n";
+
+# Check if the process exists
+@procs = matchingProcs($serviceName);
+if (scalar(@procs) == 0)
+{
+	printf "$serviceName isn't running\n";
+	exit 0;
+}
+
+# Get the pid list.
+@pids = procsToPids(@procs);
+
+killPids("-QUIT", @pids);
+sleepMillis(1000);
+
+killPids("", @pids);
+sleepMillis(250);
+
+$count = 0;
+while ($count++ < 10)
+{
+	@procs = matchingProcs($serviceName);
+	if (scalar(@procs))
+	{
+		if ($count < 5)
+		{
+			print "waiting...\n";
+		}
+		else
+		{
+			@pids = procsToPids(@procs);
+			print "trying kill -9 on @pids\n";
+			killPids("-9", @pids);
+		}
+	}
+	else
+	{
+		print "$serviceName killed\n";
+		exit 0;
+	}
+	sleepMillis(500);
+}
+
+print "ERROR - unable to kill $serviceName\n\n";
+print "Process looks like:\n@procs\n";
+exit 1;
+
+sub killPids {
+	my @pids = @_;
+
+	$signal = shift(@pids);
+	$cmd = "kill $signal @pids";
+
+	print "Start to execute $cmd.\n";
+
+	system($cmd);
+}

@@ -1,0 +1,51 @@
+#!/bin/csh -f
+
+if ($#argv != 2) then
+	echo "usage: nightlybuildanddeploy p4-view-client-dir email-addresses"
+	exit 1
+endif
+
+set srcdir = "$1"
+set email = "$2"
+set logfile = "${srcdir}/nightlybuilddeploy.log"
+
+
+# Paths to various commands
+set rm = "/bin/rm"
+set continuebuild = "/opt/ops/bin/continuebuild"
+set mail = "/bin/mail"
+set hostname = "/bin/hostname"
+
+# Begin logging the continuebuild
+$rm -f "$logfile"
+
+if (-e "$continuebuild") then
+	$continuebuild $srcdir " nightly" >& "$logfile"
+	set result = $?
+else
+	echo "FATAL ERROR: REBUILD SCRIPT "\""${continuebuild}"\"" DOES NOT EXIST" >> "$logfile"
+	set result = 1
+endif
+
+if ("$result" == 0) then
+	set result = "Successful"
+else
+	set result = "FAILED"
+endif
+
+# Send e-mail
+set host = `$hostname`
+
+if ("$result" == "FAILED") then
+	##
+else
+	/opt/ops/bin/release stopall >> "$logfile"
+	/opt/ops/bin/deploy 0.0.0.0 backup >> "$logfile"
+        /opt/ops/bin/deploy 0.0.0.0 deploy >> "$logfile"
+        /opt/ops/bin/deploy 0.0.0.0 commit >> "$logfile"
+	/opt/ops/bin/release startall >> "$logfile"
+endif
+
+$mail -s "$result $host Nightly Build and Deploy" "$email" < "$logfile"
+
+exit 0

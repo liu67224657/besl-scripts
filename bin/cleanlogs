@@ -1,0 +1,100 @@
+#!/bin/sh
+
+# cleanlogs - move user and metric files to ~/log and clear out or trim
+#	      log files that could fill up disk space. Will be set to
+#	      run daily in cron.
+#
+# Written by D. Lam 970812.
+# Last modified by D. Lam 040527
+
+# set -xv
+
+# MOVE web log files out of evid
+
+if [ -d ${HOME}/evid ]
+then
+    touch ${HOME}/evid
+    find ${HOME}/evid -mtime +13 -exec mv {} ${HOME}/log \;
+else
+    mkdir ${HOME}/evid
+fi
+
+# CLEAN OUT ~/junk AND ~/log DIRECTORIES
+
+if [ -d ${HOME}/junk ]
+then
+    touch ${HOME}/junk
+    find ${HOME}/junk -mtime +30 -exec rm -fr {} \;
+    chmod 770 ${HOME}/junk
+else
+    mkdir ${HOME}/junk
+fi
+
+if [ -d ${HOME}/log ]
+then
+    touch ${HOME}/log
+    find ${HOME}/log ! -name '*topstat*' -mtime +8 -exec rm -fr {} \;
+    find ${HOME}/log -mtime +30 -exec rm -fr {} \;
+    chmod 770 ${HOME}/log
+else
+    mkdir ${HOME}/log
+fi
+
+# GZIP ALL LOGFILES IN ~/log
+
+cd /home/cdc-ops/log
+TMPFILE=$$_bigfilelist
+if [ -f /usr/ten/bin/gzip ]
+then
+    ZIPPER=/usr/ten/bin/gzip
+else
+    ZIPPER=gzip
+fi
+
+/usr/bin/ls | grep log | grep -v gz | grep -v grep >> ${TMPFILE}
+/usr/bin/ls | grep access | grep -v gz | grep -v grep >> ${TMPFILE}
+/usr/bin/ls | grep errors | grep -v gz | grep -v grep >> ${TMPFILE}
+
+for III in `cat ${TMPFILE}`
+do
+    nice -19 ${ZIPPER} ${III}
+    sleep 5
+done
+
+rm ${TMPFILE}
+
+# CLEAN UP ALERT LOG DIR
+
+ALERTLOGDIR=/home/cdc-ops/alert-log
+
+if [ -d $ALERTLOGDIR ]
+then
+    cd $ALERTLOGDIR
+
+    for III in `/usr/bin/ls`
+    do
+	nice -19 ${ZIPPER} ${III}
+	sleep 10
+    done
+
+    find $ALERTLOGDIR -mtime +15 -exec rm -f {} \;
+fi
+
+# CLEAN UP GPS LOGS
+
+GPSLOGDIR=/var/log/gps
+
+if [ -d $GPSLOGDIR ]
+then
+    cd $GPSLOGDIR
+
+    for OLDGPSLOGDIR in old.error.logs old.logs
+    do
+	if [ -d ${OLDGPSLOGDIR} ]
+	then
+	    find ${OLDGPSLOGDIR} -mtime +1 -exec rm -f {} \;
+	fi
+    done
+fi
+
+# EOF

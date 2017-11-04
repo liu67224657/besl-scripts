@@ -1,0 +1,64 @@
+#!/bin/csh -f
+ 
+#Check and get the args
+############################ 
+if ($#argv < 1) then
+        echo "usage: ops sync|deploy"
+        exit 2
+endif
+ 
+set target = "$1"
+if ( "$target" != "sync" && "$target" != "deploy" ) then
+        echo "The args must be sync|deploy."
+	exit 2
+endif
+ 
+echo "The arg1 is $target"
+echo ""
+
+set opsView = "/opt/package/ops"
+############################
+if ( "$target" == "sync" ) then
+	#sync the ops/bin commands in build server
+	############################
+#	set p4 = "/opt/ops/bin/p4"
+ 
+#	setenv P4CONFIG ".p4config"
+#	setenv P4CHARSET "utf8"
+	setenv PATH "/usr/local/bin:$PATH"
+	############################
+ 
+	#check an go to the view root
+	############################
+	if (! -e "$opsView") then
+        	echo "FATAL ERROR: "\""${opsView}"\"" DOES NOT EXIST"
+        	exit 2
+	endif
+	echo "Go to ops dir: $opsView"
+	cd "$opsView"
+	echo ""
+	############################
+ 	
+#	chmod +x $p4
+
+	#Sync the view content
+	############################
+	echo "===SYNCING THE VIEW TO HEAD==="
+	echo "The command: git pull"
+	cd $opsView
+	git pull
+
+	echo "Resync the shared package."
+	/opt/ops/bin/resyncpackage
+
+	echo ""
+	############################
+else
+	echo "===Deploy all the ops command to all machines==="
+	#copy the bin files;
+	cp -f $opsView/bin/* /opt/ops/bin/
+	cd /opt/ops/bin
+	chmod +x *
+endif
+
+exit 0

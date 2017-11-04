@@ -1,0 +1,651 @@
+#!/usr/bin/perl
+
+#
+# Seek out and start every installed server on a box.
+# USAGE: platformrelease
+#
+BEGIN { push @INC, '/opt/ops/bin' }
+use Runtime;
+use IniFiles;
+
+#check the args
+#######################
+if (scalar(@ARGV) !=1 && scalar(@ARGV) !=2)
+{
+        usage();
+}
+
+my $target = $ARGV[0];
+my $param  = $ARGV[1];
+#######################
+
+#####################################
+my $deployDir = "/opt/ops/deploy/webserver/CURRENT";
+#####################################
+my $hostname = `hostname`;
+my $hostcfg = new Config::IniFiles( -file => "/opt/ops/bin/cfg.$hostname" );
+
+my $tomcatnum = $hostcfg->val('hostconfig', 'host.deploy.webapps.tomcat.num');
+
+my $envname = $hostcfg->val('hostconfig', 'host.deploy.env.name');
+my $envconfigfile = $hostcfg->val('hostconfig', 'host.deploy.env.file');
+my $servconfigfile = $hostcfg->val('hostconfig', 'host.deploy.serv.file');
+
+my $supportService = 0;
+my $supportWebapps = 0;
+my $supportNginx = 0;
+my $supportSSL = 0;
+
+if( $hostcfg->val('hostconfig', 'host.deploy.service.support') =~ /^true/ ) {
+    $supportService = 1;
+}
+
+if( length($hostcfg->val('hostconfig', 'host.deploy.webapps.name')) > 0) {
+    $supportWebapps = 1;
+}
+
+if( $hostcfg->val('hostconfig', 'host.deploy.webapps.nginx.support') =~ /^true/ ) {
+    $supportNginx = 1;
+}
+
+if ($supportNginx > 0 ) {
+    if( $hostcfg->val('hostconfig', 'host.deploy.webapps.ssl.support') =~ /^true/ ) {
+        $supportSSL = 1;
+    }
+}
+
+print("Support webapps: $supportWebapps, Support service: $supportService, Support SSL: $supportSSL.\n");
+
+eval("$target()");
+
+#####################################
+sub startall()
+{
+    print("[Starting] Start all services and web.\n");
+
+    startbesl();
+    sleep 5;
+
+    startdynamicweb();
+    sleep 2;
+
+    startstaticweb();
+
+    print("[Completed] Start all services and web.\n");
+}
+#####################################
+
+
+#####################################
+sub stopall()
+{
+    print("[Starting] Stop all services and web.\n");
+
+    stopstaticweb();
+    sleep 2;
+
+    stopdynamicweb();
+    sleep 2;
+
+    stopbesl();
+    
+    print("[Completed] Stop all services and web.\n");
+}
+#####################################
+
+
+#####################################
+sub restartall()
+{
+    print("[Starting] Restart all services and web.\n");
+
+    stopall();
+
+    sleep 2;
+
+    startall();
+
+    print("[Completed] Restart all services and web.\n");
+}
+#####################################
+
+#####################################
+sub startbesl()
+{
+    print("[Starting] Start all services.\n");
+    
+    if ( $supportService > 0 ) {
+        `/opt/ops/bin/startservall`;
+    }
+
+    print("[Completed] Start all services.\n");
+}
+#####################################
+
+
+#####################################
+sub stopbesl()
+{
+    print("[Starting] Stop all services.\n");
+
+    if ( $supportService > 0 ) {
+        `/opt/ops/bin/stopservall`;
+    }
+    
+    print("[Completed] Stop all services.\n");
+}
+#####################################
+
+
+#####################################
+sub restartbesl()
+{
+    print("[Starting] Restart all services.\n");
+
+    if ( $supportService > 0 ) {
+        `/opt/ops/bin/restartservall`;
+     }
+
+    print("[Completed] Restart all services.\n");
+}
+#####################################
+
+#####################################
+sub startstaticweb()
+{
+    if ( $supportWebapps > 0 ) {
+        if ( $supportNginx > 0 ) {
+            print("[Starting] Start nginx.\n");
+
+            #check the nginx pid file. if exist and is empty, remove it.
+            my $nginxpidfilename = "$deployDir/nginx/nginx.pid";
+            if ( -e $nginxpidfilename ) {
+                my $nginxpid = `cat $nginxpidfilename`;
+                chomp($nginxpid);
+                if ($nginxpid == "") {
+                    print("The nginx pid is empty, There is any error about the nginx.\n");
+
+                    `/bin/rm  $deployDir/nginx/nginx.pid`;
+                } else {
+                    print("The nginx is running, can't start it twice.\n");
+                }
+            } else {
+                my $nginxstartcmd = "$deployDir/nginx/sbin/nginx -c $deployDir/nginx/conf/nginx.conf";
+                if ($supportSSL > 0 ) {
+                    $nginxstartcmd = "$deployDir/nginx/sbin/nginx -c $deployDir/nginx/conf/nginx.conf";
+                }
+
+                print("start to execute the command: $nginxstartcmd.\n");
+                my $nginxStartCheckTimes = 0;
+
+                while( !(-e $nginxpidfilename) && $nginxStartCheckTimes < 5) {
+                   `$nginxstartcmd`;
+
+                   $nginxStartCheckTimes++;
+                   print("Try to start the nginx for the $nginxStartCheckTimes times.\n");
+                   sleep 5;
+                }
+            }
+
+            print("[Completed] Start nginx.\n");
+        }
+    }
+}
+
+#####################################
+
+
+#####################################
+sub stopstaticweb()
+{
+    if ( $supportWebapps > 0 ) {
+        if ( $supportNginx > 0 ) {
+            print("[Starting] Stop nginx.\n");
+
+            my $nginxpidfilename = "$deployDir/nginx/nginx.pid";
+            if ( -e $nginxpidfilename ) {
+                my $nginxpid = `cat $deployDir/nginx/nginx.pid`;
+                chomp($nginxpid);
+                if ($nginxpid == "") {
+                    print("The nginx pid is empty, There is any error about the nginx.\n");
+
+                    `/bin/rm  $nginxpidfilename`;
+                } else {
+                    my $nginxstopcmd = "kill -QUIT $nginxpid";
+                    if ($supportSSL > 0 ) {
+                        $nginxstopcmd = "kill -QUIT $nginxpid";
+                    }
+
+                    print("start to execute the command: $nginxstopcmd\n");
+                    my $nginxStopCheckTimes = 0;
+
+                    while( -e $nginxpidfilename && $nginxStopCheckTimes < 5) {
+                        `$nginxstopcmd`;
+
+                        $nginxStopCheckTimes++;
+                        print("Try to stop the nginx for the $nginxStopCheckTimes times.\n");
+
+                        sleep 5;
+                    }
+                }
+            }
+
+            #check the pid from ps -ef.
+            `killall -9 nginx:`;
+
+            if ( -e $nginxpidfilename ) {
+                `/bin/rm  $nginxpidfilename`;
+            }
+
+            print("[Completed] Stop nginx.\n");
+        }
+    }
+}
+
+#####################################
+
+
+#####################################
+sub restartstaticweb()
+{
+    if ( $supportWebapps > 0 ) {
+        if ( $supportNginx > 0 ) {
+            print("[Starting] Restart nginx.\n");
+
+            stopstaticweb();
+
+            sleep 5;
+
+            startstaticweb();
+
+            print("[Completed] Restart nginx.\n");
+        }
+    }
+}
+#####################################
+
+
+#####################################
+sub switchstaticweb()
+{
+    if ( $supportWebapps > 0 ) {
+        if ( $supportNginx > 0 ) {
+            print("[Starting] Switch nginx.\n");
+
+            my $nginxtestcmd = "$deployDir/nginx/sbin/nginx -t -c $deployDir/nginx/conf/nginx.conf";
+            if ($supportSSL > 0 ) {
+                $nginxtestcmd = "$deployDir/nginx/sbin/nginx -t -c $deployDir/nginx/conf/nginx.conf";
+            }
+
+            print("start to execute the test command: $nginxtestcmd.\n");
+            `$nginxtestcmd`;
+
+            my $nginxexcutecmd = "kill -HUP `cat $deployDir/nginx/nginx.pid`";
+            print("start to execute the execute command: $nginxexcutecmd.\n");
+
+            `$nginxexcutecmd`;
+
+            print("[Completed] Switch nginx.\n");
+        }
+    }
+}
+#####################################
+
+
+#####################################
+sub rotatestaticweblog()
+{
+    if ( $supportWebapps > 0 ) {
+        if ( $supportNginx > 0 ) {
+            print("[Starting] Rotate nginx logs.\n");
+
+            print("start to move the old log files.\n");
+            `/opt/ops/bin/rotfiles /opt/servicelogs/nginx`;
+
+            my $nginxexcutecmd = "kill -USR1 `cat $deployDir/nginx/nginx.pid`";
+            print("start to execute the command: $nginxexcutecmd.\n");
+
+            `$nginxexcutecmd`;
+
+            print("[Completed] Rotate nginx logs.\n");
+        }
+    }
+}
+#####################################
+
+#####################################
+sub startdynamicweb()
+{
+    print("[Starting] Start tomcat.\n");
+
+    if ( $supportWebapps > 0 ) {
+        cleandynamicweb();
+
+        my $curtomcatnum = 1;
+        while( $curtomcatnum <= $tomcatnum ){
+            #
+            starttomcat($curtomcatnum);
+
+            $curtomcatnum++;
+        }
+    }
+
+    print("[Completed] Start tomcat.\n");
+}
+#####################################
+
+#####################################
+sub stopdynamicweb()
+{
+    print("[Starting] Stop dynamic webserver.\n");
+
+    if ( $supportWebapps > 0 ) {
+        my $curtomcatnum = 1;
+
+        while( $curtomcatnum <= $tomcatnum ){
+            stoptomcat($curtomcatnum);
+
+            $curtomcatnum++;
+        }
+    }
+
+    print("[Completed] Stop dynamic webserver.\n");
+}
+#####################################
+
+#####################################
+sub restartdynamicweb()
+{
+    print("[Starting] Restart dynamic webserver.\n");
+
+    if ( $supportWebapps > 0 ) {
+        my $curtomcatnum = 1;
+        while( $curtomcatnum <= $tomcatnum ){
+            #
+            stoptomcat($curtomcatnum);
+
+            #
+            starttomcat($curtomcatnum);
+
+            #
+            $curtomcatnum++;
+        }
+    }
+
+    print("[Completed] Restart dynamic webserver.\n");
+}
+#####################################
+
+#####################################
+sub restartdynamicwebbytcnum(){
+   print("starttomcatbytcnum tcnum $param.\n");
+if ( $supportWebapps > 0 ) {
+     stoptomcatbytcnum();
+     starttomcatbytcnum();
+    }
+}
+#####################################
+
+#####################################
+sub starttomcatbytcnum(){
+    print("starttomcatbytcnum tcnum $param.\n");
+    starttomcat($param);
+}
+#####################################
+
+#####################################
+sub stoptomcatbytcnum(){
+    print("stoptomcatbytcnum tcnum $param.\n");
+    stoptomcat($param);
+}
+#####################################
+
+#####################################
+sub starttomcat()
+{
+    #get the parameters
+    my $curtomcatnum =$_[0];
+    my $start = 0;
+
+    #check the running status.
+    @procs = matchingProcs("tomcat$curtomcatnum");
+    if (scalar(@procs)) {
+        print("tomcat$curtomcatnum is running.\nProcess looks like:@procs.\n");
+
+        $start = 1;
+    }else{
+        #
+        my $startcmd = "/opt/ops/bin/tomcatctl $curtomcatnum start";
+
+        print("start to execute the command: $startcmd.\n");
+        `$startcmd`;
+
+        sleep 8;
+    }
+
+    my $tryTimes = 0;
+
+    while( $start < 1 && $tryTimes < 10 ){
+        $tryTimes++;
+
+        #check the running status
+        @procs = matchingProcs("tomcat$curtomcatnum");
+
+        if (scalar(@procs)) {
+            $start = 1;
+        }else{
+            #
+            if($tryTimes < 9) {
+                stoptomcat($curtomcatnum);
+            }else{
+                print("start to stop tomcat hardly.\n");
+                `/opt/ops/bin/hardstopserv tomcat$curtomcatnum`;
+            }
+
+            sleep 5;
+
+            #
+            my $startcmd = "/opt/ops/bin/tomcatctl $curtomcatnum start";
+
+            print("start to execute the command: $startcmd for $tryTimes times.\n");
+            `$startcmd`;
+
+            sleep 8;
+        }
+    }
+
+    if($start < 1){
+        print("ERROR: tomcat$curtomcatnum can't startup after $tryTimes times try.\n");
+    }
+}
+#####################################
+
+
+#####################################
+sub stoptomcat()
+{
+    #get the parameters
+    my $curtomcatnum =$_[0];
+
+    my $tryTimes = 0;
+    my $shutdown = 0;
+
+    while( $shutdown < 1 && $tryTimes < 3 ){
+        $tryTimes++;
+
+        #start to stop tomcat
+        my $stopcmd = "/opt/ops/bin/tomcatctl $curtomcatnum stop";
+
+        print("start to execute the command: $stopcmd for $tryTimes times.\n");
+        `$stopcmd`;
+
+        sleep 5;
+
+        #check the running status
+        print("Check the process by the ps -ef, maybe the tomcat$curtomcatnum is still running.\n");
+
+        @procs = matchingProcs("tomcat$curtomcatnum");
+        if (scalar(@procs)) {
+            print("Error: tomcat$curtomcatnum is still running after $tryTimes times shutting.\n");
+        } else {
+            $shutdown = 1;
+            print("tomcat$curtomcatnum is shutdown.\n");
+        }
+    }
+
+    if($shutdown < 1){
+        print("ERROR: tomcat$curtomcatnum can't shutdown after $tryTimes times try, shutdown it hardly.\n");
+
+        `/opt/ops/bin/hardstopserv tomcat$curtomcatnum`;
+    }
+}
+#####################################
+
+
+#####################################
+sub cleandynamicweb()
+{
+    print("[Starting] Clean dynamic webserver.\n");
+
+    my $curtomcatnum = 1;
+    while( $curtomcatnum <= $tomcatnum ){
+        `/bin/rm -r $deployDir/tomcat$curtomcatnum/work`;
+        
+        $curtomcatnum++;
+    }
+
+    print("[Completed] Clean dynamic webserver.\n");
+}
+#####################################
+
+#####################################
+sub startweb()
+{
+    print("[Starting] Start webserver.\n");
+
+    startdynamicweb();
+
+    sleep 5;
+
+    startstaticweb();
+
+    print("[Completed] Start webserver.\n");
+}
+#####################################
+
+#####################################
+sub stopweb()
+{
+    print("[Ready to...] Stop webserver.\n");
+
+    stopstaticweb();
+
+    sleep 5;
+
+    stopdynamicweb();
+
+    print("[Completed] Stop webserver.\n");
+}
+#####################################
+
+#####################################
+sub restartweb()
+{
+    print("[Ready to...] Restart webserver.\n");
+
+    stopweb();
+
+    sleep 5;
+
+    startweb();
+
+    print("[Completed] Restart webserver.\n");
+}
+#####################################
+
+#####################################
+sub startrelease()
+{
+    print("[Ready to...] Start nginx to down page.\n");
+
+    startstaticweb();
+
+    print("[Completed] Start nginx to down page.\n");
+}
+#####################################
+
+#####################################
+sub stoprelease()
+{
+    print("[Ready to...] Stop nginx with down page.\n");
+
+    stopstaticweb();
+
+    print("[Completed] Stop nginx with down page.\n");
+}
+#####################################
+
+#####################################
+sub switchrelease()
+{
+    print("[Ready to...] Switch nginx to release page.\n");
+
+    switchstaticweb();
+
+    print("[Completed] Switch nginx to release page.\n");
+}
+#####################################
+
+#####################################
+sub switchstoppage()
+{
+    print("[Ready to...] Switch nginx to down page.\n");
+
+    switchstaticweb();
+
+    print("[Completed] Switch nginx to down page.\n");
+}
+#####################################
+
+
+#####################################
+sub switchlive()
+{
+    print("[Ready to...] Switch nginx to live page.\n");
+
+    switchstaticweb();
+
+    print("[Completed] Switch nginx to live page.\n");
+}
+#####################################
+
+#####################################
+sub stopalltodown()
+{
+    print("[Ready to...] Stop all to down page.\n");
+
+    stopstaticweb();
+    sleep 2;
+
+    startstaticweb();
+    sleep 2;
+
+    stopdynamicweb();
+    sleep 2;
+
+    stopbesl();
+    sleep 2;
+
+    print("[Completed] Stop all to down page.\n");
+}
+#####################################
+
+##########
+# usage: #
+##########
+sub usage()
+{
+        print "\nUSAGE: platformrelease target\n";
+        exit 1;
+}
+

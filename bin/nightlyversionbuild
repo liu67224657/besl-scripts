@@ -1,0 +1,48 @@
+#!/bin/csh -f
+
+if ($#argv != 2) then
+	echo "usage: nightlyversionbuild p4-view-client-dir email-addresses"
+	exit 1
+endif
+
+set srcdir = "$1"
+set email = "$2"
+set logfile = "${srcdir}/nightlyversionbuild.log"
+
+
+# Paths to various commands
+set p4 = "/opt/ops/bin/p4"
+set rm = "/bin/rm"
+set continuebuild = "/opt/ops/bin/continuebuild"
+set mail = "/bin/mail"
+set hostname = "/bin/hostname"
+set grep = "/bin/grep"
+set sed = "/bin/sed"
+
+#enter the p4-view-client-dir
+cd "$srcdir"
+set client = `$p4 info | $grep 'Client name: ' | $sed 's/Client name: //'`
+
+# Begin logging the continuebuild
+$rm -f "$logfile"
+
+if (-e "$continuebuild") then
+	$continuebuild $srcdir " version" >& "$logfile"
+	set result = $?
+else
+	echo "FATAL ERROR: REBUILD SCRIPT "\""${continuebuild}"\"" DOES NOT EXIST" >> "$logfile"
+	set result = 1
+endif
+
+if ("$result" == 0) then
+	set result = "SUCCESSFUL"
+else
+	set result = "FAILED"
+endif
+
+# Send e-mail
+set host = `$hostname`
+
+$mail -s "$result $client Nightly Version Build" "$email" < "$logfile"
+
+exit 0

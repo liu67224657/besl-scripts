@@ -1,0 +1,31 @@
+#!/usr/bin/perl
+
+#
+# Stop every installed server on a box.
+# USAGE: stopservall
+#
+BEGIN { push @INC, '/opt/ops/bin' }
+use Runtime;
+
+#get all the installed service in serices dir.
+#the services installing dir is /opt/ops/service.
+@services = installedServices();
+
+# Stop each service on the list.
+while (defined($service = shift(@services)))
+{
+	print "stopping $service\n";
+	$cmd = "stopserv $service";
+	$result = `$cmd`;
+	print "$result\n";
+	if ($?)
+	{
+		push (@errors, $service);
+	}
+}
+
+if (scalar(@errors))
+{
+	die "ERROR:  some services (@errors) failed to stop.\n";
+}
+

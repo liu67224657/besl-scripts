@@ -1,0 +1,265 @@
+<project name="release" default="usage" basedir=".">
+    <tstamp>
+        <format property="release.date" pattern="yyyy-MM-dd HH:mm"/>
+    </tstamp>
+
+    <condition property="release.root" value="../">
+        <os family="windows"/>
+    </condition>
+    <condition property="release.root" value="/opt/ops">
+        <os family="unix"/>
+    </condition>
+
+    <property name="release.bin" value="${release.root}/bin"/>
+    <property name="release.platform.root" value="${release.root}/deploy/platform/CURRENT"/>
+    <property name="release.webapps.root" value="${release.platform.root}/webapps"/>
+
+    <property name="release.webserver.root" value="${release.root}/deploy/webserver/CURRENT"/>
+    <property name="release.nginx.root" value="${release.webserver.root}/nginx"/>
+
+    <property name="release.nginx.bin" value="${release.nginx.root}/sbin"/>
+
+    <property name="release.template.root" location="${release.webserver.root}/templates"/>
+    <property name="release.template.nginx" location="${release.template.root}/nginx"/>
+    <property name="release.template.tomcat" location="${release.template.root}/tomcat"/>
+
+    <!--<taskdef name="foreach"-->
+    <!--classname="net.sf.antcontrib.logic.ForEach"-->
+    <!--classpath="${basedir}/ant-contrib-1.0b3.jar">-->
+    <!--</taskdef>-->
+
+    <!--<taskdef name="if"-->
+    <!--classname="net.sf.antcontrib.logic.IfTask"-->
+    <!--classpath="${basedir}/ant-contrib-1.0b3.jar">-->
+    <!--</taskdef>-->
+
+    <taskdef resource="net/sf/antcontrib/antlib.xml">
+        <classpath>
+            <pathelement location="${basedir}/ant-contrib-1.0b3.jar"/>
+        </classpath>
+    </taskdef>
+
+    <!--###########################################################-->
+    <!--## usage task                                            ##-->
+    <!--###########################################################-->
+    <target name="usage">
+        <echo taskname="usage" message="USAGE: release.sh [-v] [target]"/>
+        <echo taskname="usage" message=" "/>
+        <echo taskname="usage" message="-v			 runs ant in verbose mode"/>
+        <echo taskname="usage" message=" "/>
+        <echo taskname="usage" message="target		 execute 'release.sh [|||]'"/>
+        <echo taskname="usage" message=" "/>
+    </target>
+
+    <!--###########################################################-->
+    <!--## initialization targets                                ##-->
+    <!--###########################################################-->
+    <target name="bootstrap" depends="configure" unless="bootstrap.complete">
+        <echo message="----------------------------------------------------     "/>
+        <echo message="Release                                                  "/>
+        <echo message="  - host                ${release.hostname}              "/>
+        <echo message="  - date                ${release.date}                  "/>
+        <echo message="  - date                ${release.date}                  "/>
+        <echo message="----------------------------------------------------     "/>
+        <property name="bootstrap.complete" value="true"/>
+
+    </target>
+
+    <target name="configure" unless="configure.complete">
+        <exec outputproperty="release.hostname" executable="sh">
+            <arg value="-c"/>
+            <arg value="hostname"/>
+        </exec>
+
+        <property file="${release.bin}/cfg.${release.hostname}"/>
+
+        <property name="release.env.name" value="${host.deploy.env.name}"/>
+        <property name="release.env.file" value="${host.deploy.env.file}"/>
+        <property name="release.serv.file" value="${host.deploy.serv.file}"/>
+
+        <property name="release.service.support" value="${host.deploy.service.support}"/>
+
+        <property name="release.webapps.name" value="${host.deploy.webapps.name}"/>
+        <property name="release.webapps.nginx.support" value="${host.deploy.webapps.nginx.support}"/>
+        <property name="release.webapps.tomcat.num" value="${host.deploy.webapps.tomcat.num}"/>
+        <property name="release.webapps.ssl.support" value="${host.deploy.webapps.ssl.support}"/>
+
+        <property name="release.webapps.names" value="${host.deploy.webapps.names}"/>
+
+        <condition property="release.webapps.support" value="true">
+            <length string="${release.webapps.name}" when="greater" length="0"/>
+        </condition>
+
+        <property name="configure.complete" value="true"/>
+    </target>
+
+    <!--###########################################################-->
+    <!--## release targets					                     ##-->
+    <!--###########################################################-->
+    <target name="release.configure.live" depends="bootstrap">
+        <echo message="[Start......] Configure for live env."/>
+
+        <antcall target="configure.live"/>
+
+        <echo message="[Stopped] Configure for live env."/>
+    </target>
+
+    <target name="release.configure.down" depends="bootstrap">
+        <echo message="[Start......] Configure for down env."/>
+
+        <antcall target="configure.down"/>
+
+        <echo message="[Stopped] Configure for down env."/>
+    </target>
+    
+   <target name="release.configure.downpage" depends="bootstrap">
+        <echo message="[Start......] Configure for down env."/>
+
+        <antcall target="configure.downpage"/>
+
+        <echo message="[Stopped] Configure for down env."/>
+    </target>
+
+    <target name="configure.live" if="release.webapps.support">
+        <antcall target="tomcat.server.xml"/>
+        <!--<antcall target="tomcat.context.xml"/>-->
+
+        <antcall target="nginx.httpd.conf">
+            <param name="param.configure.type" value="live"/>
+        </antcall>
+    </target>
+
+    <target name="configure.down" if="release.webapps.support">
+        <antcall target="tomcat.server.xml"/>
+        <!--<antcall target="tomcat.context.xml"/>-->
+
+        <antcall target="nginx.httpd.conf">
+            <param name="param.configure.type" value="down"/>
+        </antcall>
+    </target>
+    
+    <target name="configure.downpage" if="release.webapps.support">
+        <antcall target="tomcat.server.xml"/>
+        <antcall target="tomcat.context.xml"/>
+
+        <antcall target="nginx.httpd.conf">
+            <param name="param.configure.type" value="downpage"/>
+        </antcall>
+    </target>
+
+
+    <target name="tomcat.server.xml" depends="bootstrap">
+
+        <antcall target="tomcat.property.server.xml"/>
+    </target>
+
+    <target name="tomcat.context.xml" depends="bootstrap">
+
+    </target>
+
+    <!--###########################################################-->
+    <!--## deploy targets			    					     ##-->
+    <!--###########################################################-->
+    <target name="tomcat.property.server.xml" depends="bootstrap">
+        <foreach list="${release.webapps.names}" param="tc.wabapp.name" target="tomcat.template.build" delimiter=" ">
+        </foreach>
+    </target>
+    <target name="tomcat.template.build" depends="bootstrap">
+        <propertyregex property="tcnumber" input="${tc.wabapp.name}" regexp="(.*):(.*):(.*)" select="\1"/>
+        <propertyregex property="webapp.name" input="${tc.wabapp.name}" regexp="(.*):(.*):(.*)" select="\2"/>
+        <propertyregex property="servprops.name" input="${tc.wabapp.name}" regexp="(.*):(.*):(.*)" select="\3"/>
+
+        <echo message="----${tc.wabapp.name}--  tcnumber:${tcnumber}-- webapp.name:${webapp.name}-- serv.props:${host.deploy.serv.file}${webapp.name}/${release.env.name}/${servprops.name}.properties"/>
+        <available property="propsexists"
+                   file="${release.template.tomcat}/conf/${release.env.name}/tc${tcnumber}-server.properties"></available>
+
+        <if>
+            <isset property="propsexists"/>
+            <then>
+                <property file="${release.template.tomcat}/conf/${release.env.name}/tc${tcnumber}-server.properties"/>
+
+                <!--build the tomcat context.xml-->
+                <filter token="TC_CMD_PORT" value="${shutdown.port}"/>
+                <filter token="DEBUG_FLAG" value="${debug.flag}"/>
+                <filter token="TC_PORT" value="${port}"/>
+                <filter token="TC_AJP_PORT" value="${ajp.port}"/>
+                <filter token="MAX_THREADS" value="${max.threads}"/>
+                <filter token="MIN_SPARE_THREADS" value="${min.spare.threads}"/>
+                <filter token="MAX_SPARE_THREADS" value="${max.spare.threads}"/>
+                <filter token="ACCEPT_CLIENT_COUNT" value="${accept.count}"/>
+                <filter token="CONNECT_TIMEOUT_MS" value="${connection.timeout}"/>
+                <!--<filter token="WEBAPPS_DIR" value="${webapps.base}/${webapps.name}/htdocs"/>-->
+                <!--<filter token="JVM_ROUTER" value="${jvmrouter}"/>-->
+
+                <!--build the tomcat context.xml-->
+                <!--<filter token="DEBUG_FLAG" value="${debug.flag}"/>-->
+                <filter token="WEBAPP" value="${webapp.name}"/>
+                <filter token="DEPLOY_BASE" value="${deploy.base}"/>
+                <filter token="ENV_FILE" value="${host.deploy.env.file}"/>
+                <!-- /props/serv/webapps/ tools /beta/ tools01 -->
+                <filter token="SERV_FILE"
+                        value="${host.deploy.serv.file}${webapp.name}/${release.env.name}/${servprops.name}.properties"/>
+                <!--<filter token="WEBAPPS_DIR" value="${webapps.base}/${webapps.name}/htdocs"/>-->
+                <filter token="SESSION_DOMAIN" value="${session.domain}"/>
+                <filter token="WEBAPPS_DIR" value="${webapps.base}/${webapp.name}/htdocs"/>
+                <filter token="JVM_ROUTER" value="${jvmrouter}"/>
+
+                <copy file="${release.template.tomcat}/conf/${release.env.name}/tc-context.xml.template"
+                      tofile="${release.webserver.root}/tomcat${tcnumber}/conf/Catalina/localhost/ROOT.xml"
+                      filtering="true"
+                      preservelastmodified="true" overwrite="true"/>
+
+                <copy file="${release.template.tomcat}/conf/${release.env.name}/tc-server.xml.template"
+                      tofile="${release.webserver.root}/tomcat${tcnumber}/conf/server.xml" filtering="true"
+                      preservelastmodified="true" overwrite="true"/>
+
+                <if>
+                    <available file="${release.webserver.root}/tomcat${tcnumber}/newrelic"  type="dir"/>
+                <then>
+                <filter token="NEWRELIC_APP_NAME" value="tomcat${tcnumber}_${webapp.name};${release.hostname};${release.env.name}"/>
+                <copy file="${release.template.tomcat}/conf/${release.env.name}/newrelic.yml.template"
+                      tofile="${release.webserver.root}/tomcat${tcnumber}/newrelic/newrelic.yml" filtering="true"
+                      preservelastmodified="true" overwrite="true"/>
+                 </then>
+                </if>
+
+            </then>
+            <else>
+                <echo message="----------Wran: ${release.template.tomcat}/conf/${release.env.name}/tc${tcnumber}-server.properties notexists.---------"/>
+            </else>
+        </if>
+    </target>
+
+
+    <target name="nginx.httpd.conf" depends="bootstrap">
+        <property file="${release.template.nginx}/conf/${release.env.name}/${release.webapps.name}-nginx.properties"/>
+
+        <!--build the httpd.conf-->
+        <filter token="NGINX_ROOT" value="${nginx.root}"/>
+        <filter token="NGINX_HTDOCS_ROOT" value="${nginx.htdocs.root}"/>
+        <filter token="NGINX_UPLOADS_ROOT" value="${nginx.uploads.root}"/>
+
+        <filter token="NGINX_PORT" value="${nginx.port}"/>
+        <filter token="NGINX_SSL_PORT" value="${nginx.ssl.port}"/>
+
+        <filter token="NGINX_USER" value="${nginx.user}"/>
+        <filter token="NGINX_GROUP" value="${nginx.group}"/>
+
+        <copy todir="${release.nginx.root}/conf" overwrite="yes" filtering="true">
+            <fileset dir="${release.template.root}/nginx/conf/${release.env.name}" includes="**/*" casesensitive="no"/>
+        </copy>
+
+        <copy file="${release.template.nginx}/conf/${release.env.name}/${release.webapps.name}-nginx-${param.configure.type}.conf.template"
+              tofile="${release.nginx.root}/conf/nginx.conf" filtering="true"
+              preservelastmodified="true" overwrite="true"/>
+
+        <!--Copy the down and live htdocs-->
+        <copy todir="${release.nginx.root}/html" overwrite="yes">
+            <fileset dir="${release.template.root}/nginx/html/${release.webapps.name}" includes="**/*"
+                     casesensitive="no"/>
+        </copy>
+
+        <echo file="${release.nginx.root}/html/live/node-info" message="${release.hostname}"/>
+        <echo file="${release.nginx.root}/html/down/node-info" message="${release.hostname}"/>
+    </target>
+</project>

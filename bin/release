@@ -1,0 +1,54 @@
+#!/bin/csh -f
+ 
+#Check and get the args
+############################ 
+if ($#argv < 1) then
+        echo "usage: release stopalltodown|switchlive|rotatestaticweblog"
+        echo "      stopall|stopbesl|stopstaticweb|stopdynamicweb|stopweb|stoprelease"
+        echo "      startall|startbesl|startstaticweb|startdynamicweb|startweb|startrelease"
+        echo "      restartall|restartbesl|restartstaticweb|restartdynamicweb|restartweb|switchrelease|switchstoppage"
+        exit 2
+endif
+ 
+set target = "$1"
+set param = "$2"
+
+if (  "$target" != "rotatestaticweblog" && "$target" != "stopalltodown" &&  "$target" != "switchlive" && "$target" != "stopall" && "$target" != "stopbesl" && "$target" != "stopdynamicweb" && "$target" != "stopstaticweb" && "$target" != "stopweb" && "$target" != "stoprelease" && "$target" != "startall" && "$target" != "startbesl" && "$target" != "startstaticweb" && "$target" != "startdynamicweb" && "$target" != "startweb" && "$target" != "startrelease" && "$target" != "restartall" && "$target" != "restartbesl" && "$target" != "restartstaticweb" && "$target" != "restartdynamicweb" && "$target" != "restartweb" && "$target" != "switchrelease" && "$target" != "restartdynamicwebbytcnum"&& "$target" != "switchstoppage") then
+        echo "The target must be rotatestaticweblog|stopalltodown|switchlive|stopall|stopbesl|stopstaticweb|stopdynamicweb|stopweb|stoprelease|startall|startbesl|startstaticweb|startdynamicweb|startweb|startrelease|restartall|restartbesl|restartstaticweb|restartdynamicweb|restartweb|switchrelease|restartdynamicwebbytcnum|switchstoppage."
+	exit 2;
+endif
+ 
+echo "The arg1 is $target"
+echo ""
+############################
+
+#Set the runtime path for besl service.
+############################
+setenv PATH "/opt/ops/bin:$PATH"
+############################
+
+#rebuild the host configure file
+###########################
+/opt/ops/bin/hostconfig
+###########################
+
+###########################
+/opt/ops/bin/releaseconfigure.sh release.configure.live
+
+if (  "$target" == "stopalltodown" || "$target" == "startrelease" || "$target" == "switchrelease" ) then
+    /opt/ops/bin/releaseconfigure.sh release.configure.down
+endif
+
+if (  "$target" == "switchstoppage" ) then
+    /opt/ops/bin/releaseconfigure.sh release.configure.downpage
+endif
+###########################
+
+#Release the current platform
+############################
+echo "===RELEASE THE CURRENT PLATFORM==="
+echo "The command: /opt/ops/bin/platformrelease $target $param"
+/opt/ops/bin/platformrelease $target $param
+echo ""
+############################
+exit 0

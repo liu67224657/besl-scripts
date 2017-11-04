@@ -1,0 +1,14 @@
+#!/bin/bash
+
+#if ($#argv < 2) then
+#echo "usage: advertise_pv xxz2af-xxz2ae-xxz2a2 20150102 "
+#exit 2
+#endif
+
+set adid="$1"
+set date="$2"
+
+echo "grep 'www.joyme.com/click/$adid' access_joyme.log_$date | wc -l"
+
+info=`grep "www.joyme.com/click/$adid" access_joyme.log_$date | wc -l`
+echo $info

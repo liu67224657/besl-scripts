@@ -1,0 +1,12 @@
+#!/bin/bash
+
+set LOGS_PATH="/opt/ops/logs/nginx"
+date_format=$(date +%Y%m%d --date="-1 day")
+
+for log in `ls /opt/ops/logs/nginx/*.log`
+do
+cp $LOGS_PATH$log $LOGS_PATH$log'_'$date_format
+>$LOGS_PATH$log
+done
+
+/opt/ops/deploy/webserver/CURRENT/nginx/sbin/nginx -s reload -c /opt/ops/deploy/webserver/CURRENT/nginx/conf/nginx.conf

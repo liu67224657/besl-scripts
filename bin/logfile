@@ -1,0 +1,93 @@
+#!/usr/bin/perl
+
+# Performs log file rotation on stdin.
+#
+# Syntax:  logfile filename lines
+#  where filename is the base name of the output file
+#  and lines is the number of lines to allow before rotation
+#
+
+$service = $ARGV[0];
+$lines = $ARGV[1];
+$name = $service . "_log";
+
+openLog();
+while (my $line = <STDIN>)
+{
+	$count++;
+	print LOG $line;
+	if ($line =~ m/java\.lang\.OutOfMemory/)
+	{
+		restartServer($service);
+	}
+	
+#	if ($line =~ m/ org\.drools\.spi\.ConditionException: java\.lang\.NullPointerException/)
+#        {
+#                restartServerForPlaynowException($service);
+#        }
+
+	if ($count >= $lines)
+	{
+		rotateLog();
+	}
+}
+close(LOG);
+
+rename "$name+", "$name";
+
+
+# Perform a rotation.
+sub rotateLog
+{
+	my ($logdir) = "/opt/ops/logs";
+	my ($datetag) = `date +%y%m%d_%H%M%S`;
+	my ($host) = `uname -n`;
+	chop($datetag, $host);
+
+	close(LOG);
+	rename "$name+", "$name-";
+	openLog();
+	if ($name =~ /room-/)
+	{
+		system("mv $name- ${logdir}/${host}_${service}_rserv_log_${datetag}");
+	}
+	else
+	{
+		system("mv $name- ${logdir}/${host}_${service}_log_${datetag}");
+	}
+}
+
+
+# Open the active log for writing.
+sub openLog
+{
+	open(LOG, ">$name+") or die "Can't open $name: $!\n";
+	$oldfh = select(LOG);
+	# disable output buffering
+	$| = 1;
+	select($oldfh);
+	$count = 0;
+}
+
+
+# Restart the server.
+sub restartServer
+{
+	my ($service) = @_;
+
+	if ($requestedRestart)
+	{
+		print LOG "not restarting on OOM as restart requested already\n";
+		return;			# only try once
+	}
+	print LOG "\n\nrequesting restart due to java OutOfMemoryError\n\n";
+	$requestedRestart = 1;
+
+	open CMDFILE, ">restartcmd" or die "can't write command - $!\n";
+	print CMDFILE "restartserv $service\n";
+	close CMDFILE;
+
+	system("/bin/csh -f restartcmd &");
+
+	system("sendalert \"process $service restarted due to OutOfMemoryError\" &");
+}

@@ -1,0 +1,234 @@
+<project name="deploy" default="usage" basedir=".">
+    <tstamp>
+        <format property="deploy.date" pattern="yyyy-MM-dd HH:mm"/>
+    </tstamp>
+
+    <!-- set package dirs: -->
+    <condition property="build.package.root" value="c:/ops/online/package">
+        <os family="windows"/>
+    </condition>
+    <condition property="build.package.root" value="/opt/package">
+        <os family="unix"/>
+    </condition>
+
+    <exec outputproperty="deploy.hostname" executable="sh">
+        <arg value="-c"/>
+        <arg value="hostname"/>
+    </exec>
+
+    <!-- set deploy dirs: -->
+    <condition property="deploy.root" value="c:/ops/deploy">
+        <os family="windows"/>
+    </condition>
+    <condition property="deploy.root" value="/opt/ops/deploy">
+        <os family="unix"/>
+    </condition>
+
+    <property name="deploy.platform.dir" value="${deploy.root}/platform"/>
+    <property name="deploy.fivews.dir" value="${deploy.root}/www"/>
+
+    <!--###########################################################-->
+    <!--## usage task                                            ##-->
+    <!--###########################################################-->
+    <target name="usage">
+        <echo taskname="usage" message="USAGE: deploy.sh [-v] [version]"/>
+        <echo taskname="usage" message=" "/>
+        <echo taskname="usage" message="-v			 runs ant in verbose mode"/>
+        <echo taskname="usage" message=" "/>
+        <echo taskname="usage" message="target		 execute 'deploy.sh -version'"/>
+        <echo taskname="usage" message=" "/>
+    </target>
+
+    <!--###########################################################-->
+    <!--## initialization targets                                ##-->
+    <!--###########################################################-->
+    <target name="bootstrap" unless="bootstrap.complete">
+        <condition property="deploy.platform.version" value="${pversion}">
+            <isset property="pversion"/>
+        </condition>
+        <property name="deploy.platform.version" value="0.0.0.0"/>
+
+        <property name="package.platform.root" value="${build.package.root}/platform/${deploy.platform.version}"/>
+        <property name="deploy.platform.root" value="${deploy.platform.dir}/CURRENT"/>
+
+        <property name="deploy.platform.classes" value="${deploy.platform.root}/classes"/>
+        <property name="deploy.platform.lib" value="${deploy.platform.root}/lib"/>
+        <property name="deploy.platform.relatedjars" value="${deploy.platform.root}/relatedjars"/>
+
+        <property name="deploy.webapps.root" value="${deploy.platform.root}/webapps"/>
+        <property name="deploy.webapps.www" value="${deploy.platform.root}/webapps/www"/>
+        <property name="deploy.webapps.tools" value="${deploy.platform.root}/webapps/tools"/>
+        <property name="deploy.webapps.image" value="${deploy.platform.root}/webapps/image"/>
+
+        <!-- echo build summary: -->
+        <echo message="========================================================="/>
+        <echo message="Package root                 ${build.package.root}       "/>
+        <echo message="  - platform                 ${package.platform.root}    "/>
+        <echo message="Platform deploy                                          "/>
+        <echo message="  - version                  ${deploy.platform.version}  "/>
+        <echo message="  - date                     ${deploy.date}              "/>
+        <echo message="  - root                     ${deploy.platform.root}     "/>
+        <echo message="  - classes                  ${deploy.platform.classes}  "/>
+        <echo message="  - relatedjars              ${deploy.platform.relatedjars}"/>
+        <echo message="  - webapps root             ${deploy.webapps.root}      "/>
+        <echo message="     - webapps www root      ${deploy.webapps.www}       "/>
+        <echo message="     - webapps tools root    ${deploy.webapps.tools}     "/>
+        <echo message="     - webapps image root    ${deploy.webapps.image}     "/>
+        <echo message="========================================================="/>
+
+        <!-- flag boostrap as complete -->
+        <property name="bootstrap.complete" value="true"/>
+    </target>
+
+    <!--###########################################################-->
+    <!--## platform preparing targets					         ##-->
+    <!--###########################################################-->
+    <target name="platform.init" depends="bootstrap" unless="platform.init.complete">
+        <!--Create CURRENT version-->
+        <mkdir dir="${deploy.platform.dir}"/>
+
+        <property name="platform.init.complete" value="true"/>
+    </target>
+
+    <!--###########################################################-->
+    <!--## backup, recover, commit targets			    		 ##-->
+    <!--###########################################################-->
+    <!--Back up the current to back-->
+    <target name="backup" depends="bootstrap" unless="backup.complete">
+        <!--move the CURRENT to BACK version-->
+        <move todir="${deploy.platform.dir}/BACK" failonerror="no">
+            <fileset dir="${deploy.platform.dir}/CURRENT"/>
+        </move>
+
+        <property name="backup.complete" value="true"/>
+    </target>
+
+    <!--Back up the current to back-->
+    <target name="deploy" description="Deploy all the package to deploy"
+            depends="platform.all,webapps.all">
+    </target>
+
+    <!--Rollback the back to current-->
+    <target name="rollback" depends="bootstrap" unless="rollback.complete">
+        <!--Remove CURRENT version-->
+        <delete quiet="true" includeemptydirs="true">
+            <fileset dir="${deploy.platform.dir}/CURRENT" casesensitive="yes" followsymlinks="false">
+                <include name="**/*"/>
+            </fileset>
+        </delete>
+
+        <!--move the BACK to CURRENT version-->
+        <move todir="${deploy.platform.dir}/CURRENT" failonerror="no">
+            <fileset dir="${deploy.platform.dir}/BACK"/>
+        </move>
+
+        <property name="rollback.complete" value="true"/>
+    </target>
+
+    <!--Submit the deploy-->
+    <target name="commit" depends="bootstrap" unless="commit.complete">
+        <!--Remove LAST version-->
+        <delete quiet="true" includeemptydirs="true">
+            <fileset dir="${deploy.platform.dir}/LAST" casesensitive="yes" followsymlinks="false">
+                <include name="**/*"/>
+            </fileset>
+        </delete>
+
+        <!--move the BACK to LAST version-->
+        <move todir="${deploy.platform.dir}/LAST" failonerror="no">
+            <fileset dir="${deploy.platform.dir}/BACK"/>
+        </move>
+
+        <property name="commit.complete" value="true"/>
+    </target>
+
+    <!--Restore the last to current-->
+    <target name="restore" depends="bootstrap" unless="restore.complete">
+        <!--Remove CURRENT version-->
+        <delete quiet="true" includeemptydirs="true">
+            <fileset dir="${deploy.platform.dir}/CURRENT" casesensitive="yes" followsymlinks="false">
+                <include name="**/*"/>
+            </fileset>
+        </delete>
+
+        <!--move the BACK to CURRENT version-->
+        <move todir="${deploy.platform.dir}/CURRENT" failonerror="no">
+            <fileset dir="${deploy.platform.dir}/LAST"/>
+        </move>
+
+        <property name="restore.complete" value="true"/>
+    </target>
+
+    <!--###########################################################-->
+    <!--## deploy targets			    					     ##-->
+    <!--###########################################################-->
+    <target name="platform.all" description="All the platform targets" depends="bootstrap,paltform.core">
+    </target>
+
+    <target name="webapps.all" description="All the targets" depends="bootstrap,webapps.www,webapps.tools,webapps.image">
+    </target>
+
+    <target name="paltform.core" depends="bootstrap,platform.init" description="Deploy the platform"
+            unless="paltform.core.complete">
+        <!--copy the platform core jar file-->
+        <copy todir="${deploy.platform.lib}" overwrite="yes">
+            <fileset dir="${package.platform.root}" includes="platform-framework.jar" casesensitive="no"/>
+            <fileset dir="${package.platform.root}" includes="platform-webcommon.jar" casesensitive="no"/>
+        </copy>
+
+        <!--untar the platform props tar files-->
+        <untar src="${package.platform.root}/platform-configfiles.tar" dest="${deploy.platform.classes}" overwrite="yes"/>
+
+        <!--untar the platform thirdparty tar files-->
+        <untar src="${package.platform.root}/platform-relatedjars.tar" dest="${deploy.platform.relatedjars}" overwrite="yes"/>
+
+        <echo file="${deploy.platform.root}/version" message="${deploy.platform.version}"/>
+
+        <property name="paltform.core.complete" value="true"/>
+    </target>
+
+    <target name="webapps.www" depends="bootstrap,paltform.core" description="Deploy the www webapp">
+        <!--Create the core webapps dir-->
+        <mkdir dir="${deploy.webapps.www}"/>
+
+        <!--untar the core htdocs tar files-->
+        <untar src="${package.platform.root}/www-htdocs.tar" dest="${deploy.webapps.www}/htdocs" overwrite="yes"/>
+        <echo file="${deploy.webapps.www}/htdocs/node-info.txt" message="${deploy.hostname}"/>
+
+        <!--copy the core java jar file-->
+        <copy todir="${deploy.platform.lib}" overwrite="yes">
+            <fileset dir="${package.platform.root}" includes="www-*.jar" casesensitive="no"/>
+        </copy>
+    </target>
+
+    <target name="webapps.tools" depends="bootstrap,paltform.core" description="Deploy the tools webapp">
+        <!--Create the tools webapps dir-->
+        <mkdir dir="${deploy.webapps.tools}"/>
+
+        <!--untar the sso htdocs tar files-->
+        <untar src="${package.platform.root}/tools-htdocs.tar" dest="${deploy.webapps.tools}/htdocs" overwrite="yes"/>
+        <echo file="${deploy.webapps.tools}/htdocs/node-info.txt" message="${deploy.hostname}"/>
+
+        <!--copy the tools java jar file-->
+        <copy todir="${deploy.platform.lib}" overwrite="yes">
+            <fileset dir="${package.platform.root}" includes="tools-*.jar" casesensitive="no"/>
+        </copy>
+    </target>
+
+    <target name="webapps.image" depends="bootstrap,paltform.core" description="Deploy the image webapp">
+        <!--Create the tools webapps dir-->
+        <mkdir dir="${deploy.webapps.image}"/>
+
+        <!--untar the sso htdocs tar files-->
+        <untar src="${package.platform.root}/image-htdocs.tar" dest="${deploy.webapps.image}/htdocs" overwrite="yes"/>
+        <echo file="${deploy.webapps.image}/htdocs/node-info.txt" message="${deploy.hostname}"/>
+
+        <!--copy the tools java jar file-->
+        <copy todir="${deploy.platform.lib}" overwrite="yes">
+            <fileset dir="${package.platform.root}" includes="image-*.jar" casesensitive="no"/>
+        </copy>
+    </target>
+
+
+</project>
+

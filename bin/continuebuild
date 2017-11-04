@@ -1,0 +1,103 @@
+#!/bin/csh -f
+
+if ($#argv < 1) then
+	echo "usage: continuebuild p4-client-view-dir"
+	exit 2
+endif
+
+set srcdir = "$1"
+set target = "$2"
+if ( "$target" == "" ) then
+	set target = "continue"
+endif
+
+# Paths to various commands
+set p4 = "/opt/ops/bin/p4"
+set rm = "/bin/rm"
+set grep = "/bin/grep"
+set sed = "/bin/sed"
+set date = "/bin/date"
+set hostname = "/bin/hostname"
+set whoami = "/usr/bin/whoami"
+
+# Required environment variables for the p4 command
+setenv P4CONFIG	".p4config"
+setenv P4CHARSET "utf8"
+setenv PATH "/usr/local/bin:$PATH"
+
+# Determine client
+if (! -e "$srcdir") then
+	echo "FATAL ERROR: "\""${srcdir}"\"" DOES NOT EXIST"
+	exit 2
+endif
+
+#enter the p4-view-client-dir
+cd "$srcdir"
+set client = `$p4 info | $grep 'Client name: ' | $sed 's/Client name: //'`
+
+if ("$client" == "") then
+	echo "FATAL ERROR: UNABLE TO DETERMINE PERFORCE CLIENT NAME - CHECK "\""${srcdir}/.p4config"\"
+	exit 2
+endif
+
+# Set variables
+set builddir =	"${srcdir}/build/work"
+set flagfile =	"${builddir}/continue-build-succeeded"
+set now = `$date`
+set host = `$hostname`
+set user = `$whoami`
+set result = "FAILED"
+set exitval = 1
+
+# Begin build
+echo "===BUILD STARTED AT $now ON $host BY ${user}==="
+echo ""
+echo "client:    "\""$client"\"
+echo "directory: "\""$srcdir"\"
+echo ""
+
+# Blow away the class files
+echo "===DELETING BUILD OUTPUT DIRECTORY==="
+echo "$rm -fr "\""$builddir"\"
+$rm -fr "$builddir"
+echo ""
+
+# Sync to head
+echo "===SYNCING TO HEAD==="
+echo "$p4 sync"
+$p4 sync
+echo ""
+
+# Build
+echo "===BUILDING==="
+if (-e "${srcdir}/build") then
+	cd "${srcdir}/build"
+	chmod +x ./bld.sh
+
+	if (-e "./bld.sh") then
+		echo "./bld.sh clean"
+		./bld.sh clean
+		echo ""
+
+		echo "./bld.sh $target"
+		./bld.sh $target
+
+		if (-e "$flagfile") then
+			set result = "SUCCESSFUL"
+			set exitval = 0
+		endif
+	else
+		echo "FATAL ERROR: BUILD SCRIPT "\""${srcdir}/build/bld.sh"\"" DOES NOT EXIST"
+	endif
+else
+	echo "FATAL ERROR: BUILD DIRECTORY "\""${srcdir}/build"\"" DOES NOT EXIST"
+endif
+echo ""
+
+# All done
+set now = `$date`
+echo "===$result BUILD COMPLETED AT $now ON $host BY ${user}==="
+
+exit $exitval
+
+

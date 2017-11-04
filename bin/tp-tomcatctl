@@ -1,0 +1,51 @@
+#!/bin/csh
+
+#######################################
+# check and get the args
+#######################################
+if ($#argv < 2) then
+    echo "eg: /opt/ops/bin/tomcatctl-tp wikipage start|stop"
+endif
+
+set tomcatname = "$1"
+set ctl = "$2"
+if (  "$ctl" != "start" &&  "$ctl" != "stop") then
+        echo "The 2nd arg must be start|stop."
+	exit 2;
+endif
+
+foreach deployDir (`find /usr/local -maxdepth 1 -name "$tomcatname*"`)
+############
+if (! -e "$deployDir") then
+        echo "FATAL ERROR: "\""$deployDir"\"" DOES NOT EXIST"
+        exit 2
+endif
+############
+
+
+#######################################
+#set the variables
+#######################################
+set tomcatbin = "$deployDir/tomcat7/bin"
+set tomcatlogs = "$deployDir/tomcat7/logs"
+
+#setenv JAVA_OPTS "-server -Xms512m -Xmx512m -XX:PermSize=64M -XX:MaxNewSize=256m -XX:MaxPermSize=128m -Djava.awt.headless=true"
+setenv JAVA_HOME "/opt/ops/tools/linux/jdk"
+setenv IM4JAVA_TOOLPATH "/usr/local/GraphicsMagick/bin"
+#setenv CATALINA_HOME "$deployDir/tomcat7"
+setenv LC_ALL "zh_CN.UTF-8"
+
+if ("$ctl" == "stop" ) then
+    echo "Shutdown the tomcat by eric: $deployDir/tomcat7"
+    ps aux | grep "$deployDir/tomcat7" |grep -v grep | cut -c 9-15 | xargs kill -9
+endif
+
+if ("$ctl" == "start" ) then
+    echo "startup the tomcat by eric: $deployDir/tomcat7"
+    $tomcatbin/startup.sh
+endif
+
+sleep 2;
+end
+
+exit 0

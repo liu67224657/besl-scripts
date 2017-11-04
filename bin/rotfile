@@ -1,0 +1,29 @@
+#!/bin/csh -f
+
+###############################
+#chech the args
+###############################
+if ( $#argv != 2 ) then
+    echo "The args are wrong. useage: rotfile srcfile destfile"
+    exit 1
+endif
+
+set srcfilename = $argv[1]
+set destfilename = $argv[2]
+
+#############################
+#chech the src file 
+#then copy it to dest file.
+############################
+if (-e "$srcfilename") then
+    echo "The src file is exist, cat it to dest file."
+    cat $srcfilename >> $destfilename
+
+    echo "remove the src file and create a blank file."
+    rm $srcfilename
+    touch $srcfilename
+else
+    echo "The src file is no exist, do nothing."
+endif
+
+exit 0

@@ -1,0 +1,37 @@
+#!/bin/csh -f
+ 
+#Check and get the args
+############################ 
+if ($#argv < 2) then
+        echo "usage: wsdeploy <version number> <target> ie: deploy 1.0.0.1 backup"
+        exit 2
+endif
+ 
+set version = "$1"
+set target = "$2"
+if ( "$version" == "" ) then
+    set version = "0.0.0.0"
+endif
+
+if ( "$target" != "deploy" && "$target" != "backup" && "$target" != "restore" && "$target" != "commit" && "$target" != "rollback" ) then
+    echo "The $target is incorrect target."
+    exit 2
+endif
+
+echo "The arg1 is $version and the arg2 is $target."
+echo ""
+############################
+
+#Deploy the package
+############################
+set packageFile = "/opt/package/webserver/$version.tar"
+if (-e "$packageFile") then
+    echo "Start to deploy the package $version"
+    /opt/ops/bin/wsdeploy.sh -Dfversion=$version $target
+else
+	echo "The package $version is not exist."
+	exit 2
+endif
+###########################
+
+exit 0

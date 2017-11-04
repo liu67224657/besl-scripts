@@ -1,0 +1,66 @@
+#!/bin/csh -f
+ 
+#Check and get the args
+############################ 
+if ($#argv < 1) then
+        echo "usage: build p4-client-view-dir"
+        exit 2
+endif
+ 
+set srcdir = "$1"
+echo "The arg1 is $srcdir"
+echo ""
+############################
+ 
+#set the system command and the env paras
+############################
+set p4 = "/usr/local/bin/p4"
+set rm = "/bin/rm"
+ 
+setenv P4CONFIG ".p4config"
+setenv P4CHARSET "utf8"
+setenv PATH "/usr/local/bin:$PATH"
+############################
+
+#check an go to the view root
+############################
+if (! -e "$srcdir") then
+        echo "FATAL ERROR: "\""${srcdir}"\"" DOES NOT EXIST"
+        exit 2
+endif
+echo "Go to src dir: $srcdir" 
+cd "$srcdir"
+echo ""
+############################
+
+#remove the build output dir
+############################
+set builddir =  "${srcdir}/java/work"
+echo "Remove the build output dir"
+$rm -fr "$builddir"
+echo ""
+############################
+
+#Sync the view content
+############################
+echo "===SYNCING THE VIEW TO HEAD==="
+echo "The command: $p4 sync"
+$p4 sync
+echo ""
+############################
+
+#Start to build the view.
+############################ 
+echo "===GO INTO THE BUILD DIR==="
+echo "The build dir is ${srcdir}/java/build"
+cd "${srcdir}/java/build"
+chmod +x ./bld.sh
+
+echo "Clean the build firstly"
+./bld.sh clean all
+
+echo "RTest the view"
+./bld.sh rtest
+############################
+
+exit 0

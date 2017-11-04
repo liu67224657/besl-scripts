@@ -1,0 +1,62 @@
+#!/usr/bin/perl
+
+#
+# Seek out and start every installed server on a box.
+# USAGE: startservall
+#
+
+BEGIN { push @INC, '/opt/ops/bin' }
+use FindBin;
+use lib $FindBin::Bin;		# add scripts dir to search path
+use Runtime;
+
+@services = installedServices();
+
+# Sort the list such that naming server and alert
+# servers, if present, come first.
+
+@sortedServices = sort startOrder @services;
+
+# Start each server on the list.
+
+while (defined($service = shift(@sortedServices)))
+{
+	print "starting $service\n";
+	$cmd = "startserv $service";
+	$result = `$cmd`;
+	print "$result\n";
+	if ($?)
+	{
+		push (@errors, $service);
+	}
+	sleep 2;
+}
+
+if (scalar(@errors))
+{
+	die "ERROR:  some servers (@errors) failed to start.\n";
+}
+
+
+# Server start ordering
+sub startOrder
+{
+	if ($a =~ m/^naming/)
+	{
+		return -1;
+	}
+	if ($b =~ m/^naming/)
+	{
+		return 1;
+	}
+	if ($a =~ m/^alert/)
+	{
+		return -1;
+	}
+	if ($b =~ m/^alert/)
+	{
+		return 1;
+	}
+
+	return $a cmp $b;
+}

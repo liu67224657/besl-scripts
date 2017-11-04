@@ -1,0 +1,57 @@
+<project name="hostconfig" default="configure" basedir=".">
+
+    <condition property="release.root" value="../">
+        <os family="windows"/>
+    </condition>
+    <condition property="release.root" value="/opt/ops">
+        <os family="unix"/>
+    </condition>
+
+    <property name="release.bin" value="${release.root}/bin"/>
+
+    <target name="configure" unless="host.configure.complete">
+        <taskdef name="fetchproperty" classname="FetchProperty" classpath="${release.bin}"/>
+
+        <exec outputproperty="release.hostname" executable="sh">
+            <arg value="-c"/>
+            <arg value="hostname"/>
+        </exec>
+
+        <property file="${release.bin}/hostname.properties"/>
+
+        <fetchproperty name="deploy.env.name" key="${release.hostname}.env.name" defaultValue=""/>
+        <fetchproperty name="deploy.env.file" key="${release.hostname}.env.file" defaultValue="/props/env/def.properties"/>
+        <fetchproperty name="deploy.serv.file" key="${release.hostname}.serv.file" defaultValue="/props/serv/def.properties"/>
+
+        <fetchproperty name="deploy.service.support" key="${release.hostname}.service.support" defaultValue="false"/>
+
+        <fetchproperty name="deploy.webapps.name" key="${release.hostname}.webapps.name" defaultValue=""/>
+        <fetchproperty name="deploy.webapps.nginx.support" key="${release.hostname}.webapps.nginx.support" defaultValue="false"/>
+        <fetchproperty name="deploy.webapps.tomcat.num" key="${release.hostname}.webapps.tomcat.num" defaultValue="2"/>
+        <fetchproperty name="deploy.webapps.ssl.support" key="${release.hostname}.webapps.ssl.support" defaultValue="false"/>
+        <fetchproperty name="deploy.webapps.support" key="${release.hostname}.webapps.support" defaultValue="false"/>
+
+
+        <fetchproperty name="deploy.webapps.names" key="${release.hostname}.webapps.names" defaultValue=""/>
+
+        <filter token="ENV_NAME" value="${deploy.env.name}"/>
+        <filter token="ENV_FILE" value="${deploy.env.file}"/>
+        <filter token="SERV_FILE" value="${deploy.serv.file}"/>
+
+        <filter token="SERVICE_SUPPORT" value="${deploy.service.support}"/>
+
+        <filter token="WEBAPPS_NAME" value="${deploy.webapps.name}"/>
+        <filter token="NGINX_SUPPORT" value="${deploy.webapps.nginx.support}"/>
+        <filter token="TOMCAT_NUM" value="${deploy.webapps.tomcat.num}"/>
+        <filter token="SSL_SUPPORT" value="${deploy.webapps.ssl.support}"/>
+        <filter token="WEBAPPS_SUPPORT" value="${deploy.webapps.support}"/>
+
+        <filter token="TC_WEBAPPSNAME" value="${deploy.webapps.names}"/>
+
+        <copy file="${release.bin}/hostname.cfg.template"
+              tofile="${release.bin}/cfg.${release.hostname}" filtering="true" overwrite="true"/>
+
+        <property name="host.configure.complete" value="true"/>
+    </target>
+</project>
+

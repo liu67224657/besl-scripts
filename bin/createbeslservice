@@ -1,0 +1,31 @@
+#!/bin/bash
+serviceRoot="/opt/ops/services/"
+ 
+mkcmd="/bin/mkdir"
+ 
+aliascontent="alias <servicename> '/opt/ops/tools/linux/jdk/bin/java -Duser.region=US -Denv.props.file=/props/env/<env>/def.properties -Dserv.props.file=/props/serv/<servicepackage>/<env>/<cfgfilename>.properties \`cat args\` '"
+ 
+echo "1. please enter the servicename in /opt/ops/services/, ie: account01";
+read servicen
+ 
+echo "2. please enter the service package name, ie: account, billing";
+read servicep
+ 
+echo "3. please enter the service env, ie: dev, alpha, beta, prod";
+read envn
+ 
+echo "4. please enter the service config file name, ie: account02, billing04";
+read cfgfile
+ 
+ 
+${mkcmd} ${serviceRoot}${servicen}
+echo ${aliascontent} > ${serviceRoot}${servicen}/alias
+ 
+sed -i "s/<servicename>/${servicen}/g" ${serviceRoot}${servicen}/alias
+sed -i "s/<servicepackage>/${servicep}/g" ${serviceRoot}${servicen}/alias
+sed -i "s/<cfgfilename>/${cfgfile}/g" ${serviceRoot}${servicen}/alias
+sed -i "s/<env>/${envn}/g" ${serviceRoot}${servicen}/alias 
+ 
+ 
+ln -s /opt/ops/deploy/platform/CURRENT/classes/com/enjoyf/platform/serv/${servicep}/args ${serviceRoot}${servicen}/args
+

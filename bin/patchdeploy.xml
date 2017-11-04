@@ -1,0 +1,90 @@
+<project name="patchdeploy" default="usage" basedir=".">
+    <tstamp>
+        <format property="patch.date" pattern="yyyy-MM-dd HH:mm"/>
+    </tstamp>
+
+    <condition property="release.root" value="../">
+        <os family="windows"/>
+    </condition>
+    <condition property="release.root" value="/opt/ops">
+        <os family="unix"/>
+    </condition>
+
+    <!-- set package dirs: -->
+    <condition property="package.root" value="c:/ops/online/package">
+        <os family="windows"/>
+    </condition>
+    <condition property="package.root" value="/opt/package">
+        <os family="unix"/>
+    </condition>
+
+    <property name="package.patch.root" value="${package.root}/patch"/>
+
+    <property name="release.bin" value="${release.root}/bin"/>
+    <property name="release.platform.root" value="${release.root}/deploy/platform/CURRENT"/>
+
+    <!--###########################################################-->
+    <!--## usage task                                            ##-->
+    <!--###########################################################-->
+    <target name="usage">
+        <echo taskname="usage" message="USAGE: patch.sh [-v] [version]"/>
+        <echo taskname="usage" message=" "/>
+        <echo taskname="usage" message="-v			 runs ant in verbose mode"/>
+        <echo taskname="usage" message=" "/>
+        <echo taskname="usage" message="target		 execute 'patch.sh -version'"/>
+        <echo taskname="usage" message=" "/>
+    </target>
+
+    <!--###########################################################-->
+    <!--## initialization targets                                ##-->
+    <!--###########################################################-->
+    <target name="bootstrap" unless="bootstrap.complete">
+        <condition property="patch.number" value="${patch}">
+            <isset property="patch"/>
+        </condition>
+
+        <!-- echo build summary: -->
+        <echo message="========================================================="/>
+        <echo message="Patch info                                               "/>
+        <echo message="  - patch.date               ${patch.date}               "/>
+        <echo message="  - platform                 ${package.patch.root}       "/>
+        <echo message="  - patch number             ${patch}                    "/>
+        <echo message="========================================================="/>
+
+        <property name="patch.root" value="${package.patch.root}/${patch}"/>
+
+        <!-- flag boostrap as complete -->
+        <property name="bootstrap.complete" value="true"/>
+    </target>
+
+    <target name="deploy" depends="bootstrap">
+        <!--copy the config files in classes-->
+        <copy todir="${release.platform.root}/classes" overwrite="yes" verbose="yes">
+            <fileset dir="${patch.root}/classes">
+                <include name="**/*"/>
+            </fileset>
+        </copy>
+
+        <!--copy the jar files in lib-->
+        <copy todir="${release.platform.root}/lib" overwrite="yes" verbose="yes">
+            <fileset dir="${patch.root}/lib">
+                <include name="**/*"/>
+            </fileset>
+        </copy>
+
+        <!--copy the third jar files in thirdlib-->
+        <copy todir="${release.platform.root}/relatedjars" overwrite="yes" verbose="yes">
+            <fileset dir="${patch.root}/relatedjars">
+                <include name="**/*"/>
+            </fileset>
+        </copy>
+
+        <!--copy the webapps files in webapps-->
+        <copy todir="${release.platform.root}/webapps" overwrite="yes" verbose="yes">
+            <fileset dir="${patch.root}/webapps">
+                <include name="**/*"/>
+            </fileset>
+        </copy>
+    </target>
+</project>
+

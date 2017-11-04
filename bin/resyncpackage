@@ -1,0 +1,11 @@
+#!/bin/csh -f
+ 
+#resync the package
+############################
+set resyncCommand = "/home/webops/bin/resync-package"
+if (-e "$resyncCommand") then
+    echo "Start to resync the package "
+    $resyncCommand
+endif
+
+exit 0

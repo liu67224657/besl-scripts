@@ -1,0 +1,57 @@
+#!/bin/csh -f
+
+#######################################
+# check and get the args
+#######################################
+if ($#argv < 2) then
+    echo "tomcatctl tomcatnum start|stop"
+endif
+
+set tomcatnum = "$1"
+set ctl = "$2"
+if (  "$ctl" != "start" &&  "$ctl" != "stop") then
+        echo "The 2nd arg must be start|stop."
+	exit 2;
+endif
+
+#######################################
+#set the variables
+#######################################
+set tomcatbin = "/opt/ops/deploy/webserver/CURRENT/tomcat$tomcatnum/bin"
+set tomcatlogs = "/opt/ops/deploy/webserver/CURRENT/tomcat$tomcatnum/logs"
+
+echo "====setenv newrelic ====="
+if ( -d "/opt/ops/deploy/webserver/CURRENT/tomcat$tomcatnum/newrelic" ) then
+    echo "exists newrelic"
+    setenv JAVA_OPTS "-server -Xms256m -Xmx512m -Dea.proc=tomcat$tomcatnum -javaagent:/opt/ops/deploy/webserver/CURRENT/tomcat$tomcatnum/newrelic/newrelic.jar"
+else
+    echo "not exists newrelic"
+    setenv JAVA_OPTS "-server -Xms256m -Xmx512m -Dea.proc=tomcat$tomcatnum"
+endif
+
+setenv JAVA_HOME "/opt/ops/tools/linux/jdk"
+setenv IM4JAVA_TOOLPATH "/usr/local/GraphicsMagick/bin"
+setenv CATALINA_HOME "/opt/ops/deploy/webserver/CURRENT/tomcat$tomcatnum"
+setenv LC_ALL "zh_CN.UTF-8"
+
+if ("$ctl" == "stop" ) then
+    #echo "Shutdown the tomcat: tomcat$tomcatnum.use cmd: $tomcatbin/shutdown.sh"
+    echo "Shutdown the tomcat by eric: /opt/ops/deploy/webserver/CURRENT/tomcat$tomcatnum/"
+    #$tomcatbin/shutdown.sh
+    ps aux | grep "/opt/ops/deploy/webserver/CURRENT/tomcat$tomcatnum/" |grep -v grep  | cut -c 9-15 | xargs kill -9
+endif
+
+if ("$ctl" == "start" ) then
+    set todaystr = `date +%Y-%m-%d`
+    set tomcatlog = "/opt/servicelogs/tomcat$tomcatnum/catalina.out"
+    set tomcatrotlog = "/opt/servicelogs/tomcat$tomcatnum/catalina.$todaystr.out"
+
+    echo "The old tomcat catalina log file is $tomcatlog."
+    echo "The rot tomcat catalina log file is $tomcatrotlog."
+
+    /opt/ops/bin/rotfile $tomcatlog $tomcatrotlog
+
+    $tomcatbin/startup.sh
+endif
+
+exit 0

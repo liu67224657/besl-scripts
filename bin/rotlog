@@ -1,0 +1,53 @@
+#!/bin/ksh
+
+# rotlogs - Rotates log files and core files.  this script is based on uljava
+#
+# usage: rotlogs <server>
+
+
+ARCHIVE=/opt/ops/archive
+GAME=${1}
+LOGDIR=/opt/ops/logs
+MACH=`uname -n`
+PRETAG=${MACH}_${GAME}
+TAG=`date +%y%m%d_%H%M%S`
+
+# MOVE LOGFILES AND CORES, CLEAN UP JUNK FILES
+
+if [ -f core ]
+then
+    mv core ${LOGDIR}/${PRETAG}_core_${TAG}
+fi
+
+case ${GAME} in
+    alert*) # ALERT SERVER SPECIAL CASE
+
+	# SAVE ALERT LOGS
+	for ALERTLOG in `/bin/ls *.txt`
+	do
+	    mv ${ALERTLOG} ${LOGDIR}/${MACH}_${ALERTLOG}_${TAG}
+	done
+
+	# SAVE OUTPUT LOG
+	if [ -f ${GAME}_log+ ]
+	then
+	    cat ${GAME}_log- ${GAME}_log+ > ${LOGDIR}/${MACH}_${GAME}_log_${TAG} \
+		2> /dev/null
+	    rm ${GAME}_log- ${GAME}_log+
+	else
+	    mv ${GAME}_log ${LOGDIR}/${MACH}_${GAME}_log_${TAG}
+	fi ;;
+
+    *) # ALL OTHER JAVA SERVERS
+
+	# SAVE OUTPUT LOG
+	if [ -f ${GAME}_log+ ]
+	then
+	    cat ${GAME}_log- ${GAME}_log+ > ${LOGDIR}/${MACH}_${GAME}_log_${TAG} \
+		2> /dev/null
+	    rm ${GAME}_log- ${GAME}_log+
+        else
+            mv ${GAME}_log ${LOGDIR}/${MACH}_${GAME}_log_${TAG}
+        fi ;;
+esac
+

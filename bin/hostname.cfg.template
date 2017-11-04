@@ -1,0 +1,14 @@
+[hostconfig]
+host.deploy.env.name=@ENV_NAME@
+host.deploy.env.file=@ENV_FILE@
+host.deploy.serv.file=@SERV_FILE@
+
+host.deploy.service.support=@SERVICE_SUPPORT@
+
+host.deploy.webapps.name=@WEBAPPS_NAME@
+host.deploy.webapps.nginx.support=@NGINX_SUPPORT@
+host.deploy.webapps.tomcat.num=@TOMCAT_NUM@
+host.deploy.webapps.ssl.support=@SSL_SUPPORT@
+host.deploy.webapps.support=@WEBAPPS_SUPPORT@
+
+host.deploy.webapps.names= @TC_WEBAPPSNAME@

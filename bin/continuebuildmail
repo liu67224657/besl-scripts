@@ -1,0 +1,63 @@
+#!/bin/csh -f
+
+if ($#argv < 2) then
+	echo "usage: continuebuildmail p4-view-client-dir email-addresses [yes|no send failed mail only]"
+	exit 1
+endif
+
+set srcdir = "$1"
+set email = "$2"
+
+if ($#argv == 3 ) then
+	set onlyFailed = "$3"
+else
+	set onlyFailed = "yes"
+endif
+
+set logfile = "${srcdir}/continuebuild.log"
+
+# Paths to various commands
+set p4 = "/opt/ops/bin/p4"
+set rm = "/bin/rm"
+set grep = "/bin/grep"
+set sed = "/bin/sed"
+set date = "/bin/date"
+set whoami = "/usr/bin/whoami"
+set continuebuild = "/opt/ops/bin/continuebuild"
+set mail = "/bin/mail"
+set hostname = "/bin/hostname"
+
+# Required environment variables for the p4 command
+setenv P4CONFIG	".p4config"
+setenv P4CHARSET "utf8"
+setenv PATH "/usr/local/bin:$PATH"
+
+#enter the p4-view-client-dir
+cd "$srcdir"
+set client = `$p4 info | $grep 'Client name: ' | $sed 's/Client name: //'`
+
+# Begin logging the continuebuild
+$rm -f "$logfile"
+
+if (-e "$continuebuild") then
+	$continuebuild $srcdir >& "$logfile"
+	set result = $?
+else
+	echo "FATAL ERROR: REBUILD SCRIPT "\""${continuebuild}"\"" DOES NOT EXIST" > "$logfile"
+	set result = 1
+endif
+
+if ("$result" == 0) then
+	set result = "Successful"
+else
+	set result = "FAILED"
+endif
+
+# Send e-mail
+set host = `$hostname`
+
+if ("$result" == "FAILED") then
+	$mail -s "$result $host $client build" "$email" < "$logfile"
+endif
+
+exit 0

@@ -1,0 +1,28 @@
+#!/bin/csh -f
+
+if ($#argv < 4) then
+    echo "deploy shell error. ex tpdeploy wikipage ROOT 1.0.0.0 deploy"
+endif
+
+
+ set webappname = "$1"
+ set pkg="$2"
+ set version="$3"
+ set action="$4"
+
+ ############
+ if (! -e "/usr/local/$webappname") then
+         echo "FATAL ERROR: "\""/usr/local/$webappname"\"" DOES NOT EXIST"
+         exit 2
+ endif
+ ############
+
+if("$action" == "deploy") then
+   echo "oper is deploy......"
+   cd /opt/ops/bin
+   ./tp-deploy.sh $webappname $pkg $version
+else if("$action" == "backup")then
+   echo "oper is back......"
+    cd /opt/ops/bin
+   ./tp-backup.sh $webappname $pkg
+endif

@@ -1,0 +1,283 @@
+<project name="wsdeploy" default="usage" basedir=".">
+    <tstamp>
+        <format property="deploy.date" pattern="yyyy-MM-dd HH:mm"/>
+    </tstamp>
+
+    <!-- set package dirs: -->
+    <condition property="build.package.root" value="c:/ops/online/package">
+        <os family="windows"/>
+    </condition>
+    <condition property="build.package.root" value="/opt/package">
+        <os family="unix"/>
+    </condition>
+
+    <!-- set logs dirs: -->
+    <condition property="service.logs.root" value="c:/ops/online/servicelogs">
+        <os family="windows"/>
+    </condition>
+    <condition property="service.logs.root" value="/opt/servicelogs">
+        <os family="unix"/>
+    </condition>
+
+    <!-- set deploy dirs: -->
+    <condition property="deploy.root" value="c:/ops/deploy">
+        <os family="windows"/>
+    </condition>
+    <condition property="deploy.root" value="/opt/ops/deploy">
+        <os family="unix"/>
+    </condition>
+    <property name="deploy.webserver.dir" value="${deploy.root}/webserver"/>
+
+    <!--###########################################################-->
+    <!--## usage task                                            ##-->
+    <!--###########################################################-->
+    <target name="usage">
+        <echo taskname="usage" message="USAGE: wsdeploy [-v] [version]"/>
+        <echo taskname="usage" message=" "/>
+        <echo taskname="usage" message="-v			 runs ant in verbose mode"/>
+        <echo taskname="usage" message=" "/>
+        <echo taskname="usage" message="target		 execute 'wsdeploy.sh -version'"/>
+        <echo taskname="usage" message=" "/>
+    </target>
+
+    <!--###########################################################-->
+    <!--## initialization targets                                ##-->
+    <!--###########################################################-->
+    <target name="bootstrap" unless="bootstrap.complete">
+        <condition property="deploy.webserver.version" value="${fversion}">
+            <isset property="fversion"/>
+        </condition>
+        <property name="deploy.webserver.version" value="0.0.0.0"/>
+        <property name="deploy.webserver.root" value="${deploy.webserver.dir}/CURRENT"/>
+        <property name="package.webserver.root" value="${build.package.root}/webserver"/>
+
+        <!-- echo build summary: -->
+        <echo message="----------------------------------------------------     "/>
+        <echo message="Package root            ${build.package.root}            "/>
+        <echo message="  - fivews              ${package.webserver.root}           "/>
+        <echo message="Fivews deploy                                            "/>
+        <echo message="  - version             ${deploy.webserver.version}         "/>
+        <echo message="  - date                ${deploy.date}                   "/>
+        <echo message="  - root                ${deploy.webserver.root}            "/>
+        <echo message="----------------------------------------------------     "/>
+
+        <!-- flag boostrap as complete -->
+        <property name="bootstrap.complete" value="true"/>
+    </target>
+
+    <!--###########################################################-->
+    <!--## platform preparing targets					         ##-->
+    <!--###########################################################-->
+    <target name="init" depends="bootstrap" unless="init.complete">
+        <!--Create CURRENT version-->
+        <mkdir dir="${deploy.webserver.dir}"/>
+        <echo file="${deploy.webserver.dir}/version" message="${deploy.webserver.version}"/>
+        <property name="init.complete" value="true"/>
+    </target>
+
+    <!--###########################################################-->
+    <!--## backup, recover, commit targets			    		 ##-->
+    <!--###########################################################-->
+    <!--Back up the current to back-->
+    <target name="backup" depends="bootstrap" unless="backup.complete">
+        <antcall target="removelogslink"/>
+
+        <!--move the CURRENT to BACK version-->
+        <move todir="${deploy.webserver.dir}/BACK" failonerror="no">
+            <fileset dir="${deploy.webserver.dir}/CURRENT"/>
+        </move>
+
+        <property name="backup.complete" value="true"/>
+    </target>
+
+    <!--Back up the current to back-->
+    <target name="deploy" depends="bootstrap,init" description="Deploy the fivews" unless="deploy.complete">
+        <!--untar the platform props tar files-->
+        <untar src="${package.webserver.root}/${deploy.webserver.version}.tar" dest="${deploy.webserver.root}" overwrite="yes"/>
+
+        <chmod perm="755" type="file" dir="${deploy.webserver.root}/nginx/sbin" includes="**/*"/>
+        <chmod perm="755" type="file" dir="${deploy.webserver.root}/tomcat1/bin" includes="**/*.sh"/>
+        <chmod perm="755" type="file" dir="${deploy.webserver.root}/tomcat2/bin" includes="**/*.sh"/>
+        <chmod perm="755" type="file" dir="${deploy.webserver.root}/tomcat3/bin" includes="**/*.sh"/>
+        <chmod perm="755" type="file" dir="${deploy.webserver.root}/tomcat4/bin" includes="**/*.sh"/>
+        <chmod perm="755" type="file" dir="${deploy.webserver.root}/tomcat5/bin" includes="**/*.sh"/>
+        <chmod perm="755" type="file" dir="${deploy.webserver.root}/tomcat6/bin" includes="**/*.sh"/>
+        <chmod perm="755" type="file" dir="${deploy.webserver.root}/tomcat7/bin" includes="**/*.sh"/>
+        <chmod perm="755" type="file" dir="${deploy.webserver.root}/tomcat8/bin" includes="**/*.sh"/>
+
+        <antcall target="createlogslink"/>
+
+        <property name="deploy.complete" value="true"/>
+    </target>
+
+    <!--Rollback the back to current-->
+    <target name="rollback" depends="bootstrap" unless="rollback.complete">
+        <antcall target="removelogslink"/>
+
+        <!--Remove CURRENT version-->
+        <delete quiet="true" includeemptydirs="true">
+            <fileset dir="${deploy.webserver.dir}/CURRENT" casesensitive="yes" followsymlinks="false">
+                <include name="**/*"/>
+            </fileset>
+        </delete>
+
+        <!--move the BACK to CURRENT version-->
+        <move todir="${deploy.webserver.dir}/CURRENT" failonerror="no">
+            <fileset dir="${deploy.webserver.dir}/BACK"/>
+        </move>
+
+        <antcall target="createlogslink"/>
+
+        <property name="rollback.complete" value="true"/>
+    </target>
+
+    <!--Submit the deploy-->
+    <target name="commit" depends="bootstrap" unless="commit.complete">
+        <!--Remove LAST version-->
+        <delete quiet="true" includeemptydirs="true">
+            <fileset dir="${deploy.webserver.dir}/LAST" casesensitive="yes" followsymlinks="false">
+                <include name="**/*"/>
+            </fileset>
+        </delete>
+
+        <!--move the BACK to LAST version-->
+        <move todir="${deploy.webserver.dir}/LAST" failonerror="no">
+            <fileset dir="${deploy.webserver.dir}/BACK"/>
+        </move>
+
+        <property name="commit.complete" value="true"/>
+    </target>
+
+    <!--Restore the last to current-->
+    <target name="restore" depends="bootstrap" unless="restore.complete">
+        <antcall target="removelogslink"/>
+
+        <!--Remove CURRENT version-->
+        <delete quiet="true" includeemptydirs="true">
+            <fileset dir="${deploy.webserver.dir}/CURRENT" casesensitive="yes" followsymlinks="false">
+                <include name="**/*"/>
+            </fileset>
+        </delete>
+
+        <!--move the BACK to CURRENT version-->
+        <move todir="${deploy.webserver.dir}/CURRENT" failonerror="no">
+            <fileset dir="${deploy.webserver.dir}/LAST"/>
+        </move>
+
+        <antcall target="createlogslink"/>
+
+        <property name="restore.complete" value="true"/>
+    </target>
+
+    <!--###########################################################-->
+    <!--## deploy targets			    					     ##-->
+    <!--###########################################################-->
+
+    <target name="removelogslink" depends="bootstrap,init" description="unlink the log links">
+        <!--remove the logs link-->
+        <exec dir="${deploy.webserver.root}/nginx" executable="unlink" failonerror="false">
+            <arg value="${deploy.webserver.root}/nginx/logs"/>
+        </exec>
+
+        <exec dir="${deploy.webserver.root}/tomcat1" executable="unlink" failonerror="false">
+            <arg value="${deploy.webserver.root}/tomcat1/logs"/>
+        </exec>
+
+        <exec dir="${deploy.webserver.root}/tomcat2" executable="unlink" failonerror="false">
+            <arg value="${deploy.webserver.root}/tomcat2/logs"/>
+        </exec>
+
+        <exec dir="${deploy.webserver.root}/tomcat3" executable="unlink" failonerror="false">
+            <arg value="${deploy.webserver.root}/tomcat3/logs"/>
+        </exec>
+
+        <exec dir="${deploy.webserver.root}/tomcat4" executable="unlink" failonerror="false">
+            <arg value="${deploy.webserver.root}/tomcat4/logs"/>
+        </exec>
+
+        <exec dir="${deploy.webserver.root}/tomcat5" executable="unlink" failonerror="false">
+            <arg value="${deploy.webserver.root}/tomcat5/logs"/>
+        </exec>
+
+        <exec dir="${deploy.webserver.root}/tomcat6" executable="unlink" failonerror="false">
+            <arg value="${deploy.webserver.root}/tomcat6/logs"/>
+        </exec>
+
+        <exec dir="${deploy.webserver.root}/tomcat7" executable="unlink" failonerror="false">
+            <arg value="${deploy.webserver.root}/tomcat7/logs"/>
+        </exec>
+
+        <exec dir="${deploy.webserver.root}/tomcat8" executable="unlink" failonerror="false">
+            <arg value="${deploy.webserver.root}/tomcat8/logs"/>
+        </exec>
+    </target>
+
+    <target name="createlogslink" depends="bootstrap,init" description="create logs links">
+        <!--build the log dir-->
+        <mkdir dir="${service.logs.root}/nginx"/>
+        <mkdir dir="${service.logs.root}/tomcat1"/>
+        <mkdir dir="${service.logs.root}/tomcat2"/>
+        <mkdir dir="${service.logs.root}/tomcat3"/>
+        <mkdir dir="${service.logs.root}/tomcat4"/>
+        <mkdir dir="${service.logs.root}/tomcat5"/>
+        <mkdir dir="${service.logs.root}/tomcat6"/>
+        <mkdir dir="${service.logs.root}/tomcat7"/>
+        <mkdir dir="${service.logs.root}/tomcat8"/>
+
+        <!--create the logs link-->
+        <exec dir="${deploy.webserver.root}/nginx" executable="ln" failonerror="false">
+            <arg value="-s"/>
+            <arg value="${service.logs.root}/nginx"/>
+            <arg value="${deploy.webserver.root}/nginx/logs"/>
+        </exec>
+
+        <exec dir="${deploy.webserver.root}/tomcat1" executable="ln" failonerror="false">
+            <arg value="-s"/>
+            <arg value="${service.logs.root}/tomcat1"/>
+            <arg value="${deploy.webserver.root}/tomcat1/logs"/>
+        </exec>
+
+        <exec dir="${deploy.webserver.root}/tomcat2" executable="ln" failonerror="false">
+            <arg value="-s"/>
+            <arg value="${service.logs.root}/tomcat2"/>
+            <arg value="${deploy.webserver.root}/tomcat2/logs"/>
+        </exec>
+
+        <exec dir="${deploy.webserver.root}/tomcat3" executable="ln" failonerror="false">
+            <arg value="-s"/>
+            <arg value="${service.logs.root}/tomcat3"/>
+            <arg value="${deploy.webserver.root}/tomcat3/logs"/>
+        </exec>
+
+        <exec dir="${deploy.webserver.root}/tomcat4" executable="ln" failonerror="false">
+            <arg value="-s"/>
+            <arg value="${service.logs.root}/tomcat4"/>
+            <arg value="${deploy.webserver.root}/tomcat4/logs"/>
+        </exec>
+
+        <exec dir="${deploy.webserver.root}/tomcat5" executable="ln" failonerror="false">
+            <arg value="-s"/>
+            <arg value="${service.logs.root}/tomcat5"/>
+            <arg value="${deploy.webserver.root}/tomcat5/logs"/>
+        </exec>
+
+        <exec dir="${deploy.webserver.root}/tomcat6" executable="ln" failonerror="false">
+            <arg value="-s"/>
+            <arg value="${service.logs.root}/tomcat6"/>
+            <arg value="${deploy.webserver.root}/tomcat6/logs"/>
+        </exec>
+
+        <exec dir="${deploy.webserver.root}/tomcat7" executable="ln" failonerror="false">
+            <arg value="-s"/>
+            <arg value="${service.logs.root}/tomcat7"/>
+            <arg value="${deploy.webserver.root}/tomcat7/logs"/>
+        </exec>
+
+        <exec dir="${deploy.webserver.root}/tomcat8" executable="ln" failonerror="false">
+            <arg value="-s"/>
+            <arg value="${service.logs.root}/tomcat8"/>
+            <arg value="${deploy.webserver.root}/tomcat8/logs"/>
+        </exec>
+    </target>
+</project>
+

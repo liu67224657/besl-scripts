@@ -1,0 +1,68 @@
+#!/usr/bin/perl
+
+#
+# Stop a linux process.
+#
+BEGIN { push @INC, '/opt/ops/bin' }
+use Runtime;
+
+if (scalar(@ARGV) < 1) {
+    print "\nUSAGE: hardstopserv <servername>\n\n";
+    exit 1;
+}
+
+# Find the directory
+$serviceName = $ARGV[0];
+
+# Check if the process exists
+@procs = matchingProcs($serviceName);
+
+if (scalar(@procs) == 0) {
+	printf "$serviceName is NOT running.\n";
+	exit 0;
+}
+
+# start to hard stop service.
+printf "Start to hard shutdown $serviceName.\n";
+
+# Get the pid list.
+@pids = procsToPids(@procs);
+
+$count = 0;
+while ($count++ < 8) {
+	@procs = matchingProcs($serviceName);
+	
+	if (scalar(@procs)) {
+		if ($count < 5) {
+			print "Waiting a while for times $count, ...\n";
+			sleepMillis(2000);
+		} else {
+			@pids = procsToPids(@procs);
+			
+			print "Trying kill -9 on @pids.\n";
+			killPids("-9", @pids);
+
+			sleepMillis(2000);
+		}
+	} else {
+		print "$serviceName is killed.\n";
+		exit 0;
+	}
+}
+
+print "ERROR - unable to kill $serviceName\n\n";
+print "Process looks like:\n@procs\n";
+exit 1;
+
+sub killPids {
+	my @pids = @_;
+
+	$signal = shift(@pids);
+	$cmd = "kill $signal @pids";
+
+	print "Start to execute $cmd.\n";
+
+	system($cmd);
+}
+
+

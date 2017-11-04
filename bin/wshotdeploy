@@ -1,0 +1,65 @@
+#!/bin/csh -f
+
+#Check and get the args
+############################
+if ($#argv < 1) then
+        echo "usage: wshotdeploy sync|deploy|applya|applyt"
+        exit 2
+endif
+
+set target = "$1"
+if ( "$target" != "sync" && "$target" != "deploy" && "$target" != "applya" && "$target" != "applyt") then
+    echo "The arg must been sync|deploy|applya|applyt."
+	exit 2
+endif
+
+echo "The arg1 is $target."
+echo ""
+###########################
+
+#set the env param
+##########################
+set hotdeployViewRoot = "/opt/ops/repo/besl-webserver"
+#set p4 = "/opt/ops/bin/p4"
+#set deployRoot = "/opt/ops/deploy/www/CURRENT"
+
+#setenv P4CONFIG ".p4config"
+#setenv P4CHARSET "utf8"
+setenv PATH "/usr/local/bin:$PATH"
+###########################
+
+#According to the target, do sync or hotdeploy;
+###########################
+if ( "$target" == "sync" ) then
+	echo "===SYNC ALL THE HOTDEPLOY CONTENT TO PACKAGE DIR==="
+	echo "The hotdeploy view dir is $hotdeployViewRoot"
+	echo "Go to the view root: $hotdeployViewRoot"
+	cd $hotdeployViewRoot
+	echo "Sync all the hotdeploy content"
+	cd $hotdeployViewRoot
+	git pull
+	#$p4 sync
+
+	echo "Resync hotdeploy content"
+	/opt/ops/bin/resyncpackage
+
+	echo ""
+else if ( "$target" == "deploy" ) then
+	echo "===DISPATCH ALL THE CONTENT IN HOTDEPLOY PACKAGE TO CURRENT DEPLOY==="
+	/opt/ops/bin/hotdeploy.sh wsdeploy
+	echo ""
+else if ( "$target" == "applya" ) then
+	echo "===RESTART THE APACHE==="
+	/opt/ops/bin/release restartstaticweb
+	echo ""	
+else if ( "$target" == "applyt" ) then
+	echo "===RESTART THE TOMCAT==="
+	/opt/ops/bin/release restartdynamicweb
+	echo ""
+else
+    echo "===ERROR PARAMETERS==="
+    exit 3
+endif
+###########################
+
+exit 0
